@@ -72,8 +72,8 @@ Enter the **absolute path** to the target repository in the text input:
 
 | Scan Report | Repository Path |
 |-------------|-----------------|
-| `demo.json` | `/home/p7500113/ajinkya/SecureAI` |
-| `petclinic_scan.json` | `/home/p7500113/ajinkya/spring-petclinic` |
+| `demo.json` | `/path/to/SecureAI` (current directory) |
+| `petclinic_scan.json` | `/path/to/spring-petclinic` |
 
 #### Step 3 — Configure (Optional)
 
@@ -143,7 +143,7 @@ python main.py --scan report.json --repo ./myproject --output ./fixes
 python main.py --scan demo.json --repo . --mode automatic --verbose
 
 # Java Spring PetClinic demo (~2min)
-python main.py --scan petclinic_scan.json --repo /home/p7500113/ajinkya/spring-petclinic --mode automatic --verbose
+python main.py --scan petclinic_scan.json --repo /path/to/spring-petclinic --mode automatic --verbose
 ```
 
 ---
