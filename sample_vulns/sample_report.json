@@ -1,0 +1,23 @@
+{
+  "scan_info": {
+    "scanner": "custom",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "target": "sample_vulns"
+  },
+  "vulnerabilities": [
+    {
+      "vuln_type": "sql_injection",
+      "file_path": "sample_vulns/sql_injection.py",
+      "line_number": 18,
+      "severity": "HIGH",
+      "description": "SQL injection vulnerability via f-string formatting in query"
+    },
+    {
+      "vuln_type": "xss",
+      "file_path": "sample_vulns/xss.py",
+      "line_number": 22,
+      "severity": "MEDIUM",
+      "description": "Cross-site scripting via direct user input in HTML response"
+    }
+  ]
+}

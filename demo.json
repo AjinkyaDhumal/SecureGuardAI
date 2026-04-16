@@ -1,0 +1,23 @@
+{
+  "scanner": "custom",
+  "scan_date": "2024-03-29",
+  "description": "SecureGuard AI Demo - SQL Injection (pass) and XSS (retry)",
+  "vulnerabilities": [
+    {
+      "vuln_type": "sql_injection",
+      "file_path": "webapp/database.py",
+      "line_number": 14,
+      "severity": "HIGH",
+      "description": "SQL injection vulnerability: user input directly interpolated into query string using f-string",
+      "code_snippet": "query = f\"SELECT * FROM users WHERE id = {user_id}\""
+    },
+    {
+      "vuln_type": "xss",
+      "file_path": "webapp/handlers.py",
+      "line_number": 11,
+      "severity": "HIGH",
+      "description": "Cross-site scripting (XSS) vulnerability: user input directly concatenated into HTML string",
+      "code_snippet": "html_output = \"<div>\" + user_input + \"</div>\""
+    }
+  ]
+}

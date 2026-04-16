@@ -1,0 +1,373 @@
+# SecureGuard AI - Vulnerability Configuration
+# 
+# This file defines which vulnerability types are active, their categories,
+# template mappings, and associated prompt templates.
+# Teams can customize this without changing code.
+
+# Version of the configuration schema
+version: "2.0"
+
+# Global settings
+settings:
+  # Confidence threshold for false positive filtering (0.0 - 1.0)
+  fp_confidence_threshold: 0.75
+  
+  # Maximum retry attempts for fix generation
+  max_retries: 3
+  
+  # Enable/disable verbose agent output
+  verbose: true
+  
+  # Default review mode: 'interactive' or 'automatic'
+  default_review_mode: interactive
+  
+  # Template settings
+  template_settings:
+    # Enforce strict code-only output
+    strict_code_output: true
+    # Include examples in prompts
+    include_examples: true
+    # Maximum context lines to include
+    max_context_lines: 50
+
+# Active vulnerability types to scan
+# Comment out or remove types to disable them
+vulnerabilities:
+  # Injection Category (HIGH PRIORITY)
+  - sql_injection
+  - command_injection
+  - ldap_injection
+  - xpath_injection
+  
+  # Web Category
+  - xss
+  - csrf
+  - open_redirect
+  - xxe
+  
+  # File & Data Category
+  - path_traversal
+  - insecure_deserialization
+  - arbitrary_file_upload
+  - log_injection
+  
+  # Auth & Crypto Category
+  - hardcoded_secrets
+  - weak_hashing
+  - broken_jwt_auth
+  - weak_randomness
+  
+  # Code & Config Category
+  - insecure_eval
+  - debug_mode_prod
+  - permissive_cors
+  - missing_security_headers
+  
+  # Resource & Memory Category
+  - buffer_overflow
+  - use_after_free
+  - integer_overflow
+  - redos
+
+# Template mappings - maps vuln_type to template identifier
+# Use 'builtin' for built-in templates or specify custom template path
+template_mappings:
+  # Core 5 vulnerability types with built-in templates
+  sql_injection:
+    template: builtin
+    fix_strategy: "String concat in queries → parameterized statements"
+    priority: 1
+  
+  xss:
+    template: builtin
+    fix_strategy: "Unescaped output → HTML escape, auto-escaping template"
+    priority: 1
+  
+  command_injection:
+    template: builtin
+    fix_strategy: "shell=True with user input → list args, no shell"
+    priority: 1
+  
+  path_traversal:
+    template: builtin
+    fix_strategy: "User input in file path → basename + base dir check"
+    priority: 1
+  
+  hardcoded_secrets:
+    template: builtin
+    fix_strategy: "Literal API key in source → os.getenv + .env file"
+    priority: 1
+  
+  # Other built-in templates
+  ldap_injection:
+    template: builtin
+    priority: 2
+  
+  xpath_injection:
+    template: builtin
+    priority: 2
+  
+  csrf:
+    template: builtin
+    priority: 2
+  
+  open_redirect:
+    template: builtin
+    priority: 2
+  
+  xxe:
+    template: builtin
+    priority: 2
+  
+  insecure_deserialization:
+    template: builtin
+    priority: 1
+  
+  arbitrary_file_upload:
+    template: builtin
+    priority: 2
+  
+  log_injection:
+    template: builtin
+    priority: 3
+  
+  weak_hashing:
+    template: builtin
+    priority: 2
+  
+  broken_jwt_auth:
+    template: builtin
+    priority: 1
+  
+  weak_randomness:
+    template: builtin
+    priority: 2
+  
+  insecure_eval:
+    template: builtin
+    priority: 1
+  
+  debug_mode_prod:
+    template: builtin
+    priority: 3
+  
+  permissive_cors:
+    template: builtin
+    priority: 2
+  
+  missing_security_headers:
+    template: builtin
+    priority: 3
+  
+  buffer_overflow:
+    template: builtin
+    priority: 1
+  
+  use_after_free:
+    template: builtin
+    priority: 1
+  
+  integer_overflow:
+    template: builtin
+    priority: 2
+  
+  redos:
+    template: builtin
+    priority: 2
+
+# Vulnerability categories for grouping
+categories:
+  injection:
+    name: "Injection"
+    description: "Vulnerabilities where untrusted data is sent to an interpreter"
+    types:
+      - sql_injection
+      - command_injection
+      - ldap_injection
+      - xpath_injection
+  
+  web:
+    name: "Web"
+    description: "Web application vulnerabilities"
+    types:
+      - xss
+      - csrf
+      - open_redirect
+      - xxe
+  
+  file_data:
+    name: "File & Data"
+    description: "File handling and data processing vulnerabilities"
+    types:
+      - path_traversal
+      - insecure_deserialization
+      - arbitrary_file_upload
+      - log_injection
+  
+  auth_crypto:
+    name: "Auth & Crypto"
+    description: "Authentication and cryptographic vulnerabilities"
+    types:
+      - hardcoded_secrets
+      - weak_hashing
+      - broken_jwt_auth
+      - weak_randomness
+  
+  code_config:
+    name: "Code & Config"
+    description: "Code execution and configuration vulnerabilities"
+    types:
+      - insecure_eval
+      - debug_mode_prod
+      - permissive_cors
+      - missing_security_headers
+  
+  resource_memory:
+    name: "Resource & Memory"
+    description: "Resource management and memory safety vulnerabilities"
+    types:
+      - buffer_overflow
+      - use_after_free
+      - integer_overflow
+      - redos
+
+# Severity overrides (optional)
+# Override default severity for specific vulnerability types
+severity_override:
+  # Example: treat command_injection as CRITICAL instead of HIGH
+  # command_injection: CRITICAL
+
+# Custom prompt template paths (optional)
+# Override default templates with custom ones
+prompts:
+  # Example: use custom template for sql_injection
+  # sql_injection: prompts/custom/sql_injection.txt
+
+# Custom vulnerability types (optional)
+# Define organization-specific vulnerability patterns
+custom_types:
+  # Example custom type:
+  # internal_api_exposure:
+  #   category: custom
+  #   severity: HIGH
+  #   description: "Internal API endpoints exposed without authentication"
+  #   fix_strategy: "Add authentication middleware to internal routes"
+  #   template_path: prompts/custom/internal_api.txt
+
+# Scanner-specific mappings (optional)
+# Map scanner rule IDs to our vulnerability types
+scanner_mappings:
+  semgrep:
+    # Example: python.lang.security.audit.dangerous-subprocess-use
+    # maps to command_injection
+  
+  bandit:
+    # Example: B102 (exec_used) maps to insecure_eval
+    B102: insecure_eval
+    B103: insecure_eval
+    B301: insecure_deserialization
+    B302: insecure_deserialization
+    B303: weak_hashing
+    B304: weak_hashing
+    B305: weak_hashing
+    B306: weak_hashing
+    B307: insecure_eval
+    B308: insecure_eval
+    B310: open_redirect
+    B311: weak_randomness
+    B312: weak_randomness
+    B313: xxe
+    B314: xxe
+    B315: xxe
+    B316: xxe
+    B317: xxe
+    B318: xxe
+    B319: xxe
+    B320: xxe
+    B321: broken_jwt_auth
+    B322: insecure_eval
+    B323: broken_jwt_auth
+    B324: weak_hashing
+    B501: broken_jwt_auth
+    B502: broken_jwt_auth
+    B503: broken_jwt_auth
+    B504: broken_jwt_auth
+    B505: weak_randomness
+    B506: hardcoded_secrets
+    B507: broken_jwt_auth
+    B601: command_injection
+    B602: command_injection
+    B603: command_injection
+    B604: command_injection
+    B605: command_injection
+    B606: command_injection
+    B607: command_injection
+    B608: sql_injection
+    B609: command_injection
+    B610: command_injection
+    B611: command_injection
+    B701: xss
+    B702: xss
+    B703: xss
+
+# OWASP Top 10 2021 mappings
+owasp_mappings:
+  "A01:2021":
+    name: "Broken Access Control"
+    types:
+      - path_traversal
+      - open_redirect
+      - csrf
+  
+  "A02:2021":
+    name: "Cryptographic Failures"
+    types:
+      - hardcoded_secrets
+      - weak_hashing
+      - weak_randomness
+  
+  "A03:2021":
+    name: "Injection"
+    types:
+      - sql_injection
+      - command_injection
+      - ldap_injection
+      - xpath_injection
+      - xss
+      - insecure_eval
+  
+  "A04:2021":
+    name: "Insecure Design"
+    types:
+      - arbitrary_file_upload
+  
+  "A05:2021":
+    name: "Security Misconfiguration"
+    types:
+      - xxe
+      - debug_mode_prod
+      - permissive_cors
+      - missing_security_headers
+  
+  "A06:2021":
+    name: "Vulnerable and Outdated Components"
+    types:
+      - buffer_overflow
+      - use_after_free
+      - integer_overflow
+      - redos
+  
+  "A07:2021":
+    name: "Identification and Authentication Failures"
+    types:
+      - broken_jwt_auth
+  
+  "A08:2021":
+    name: "Software and Data Integrity Failures"
+    types:
+      - insecure_deserialization
+  
+  "A09:2021":
+    name: "Security Logging and Monitoring Failures"
+    types:
+      - log_injection

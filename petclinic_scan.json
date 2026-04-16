@@ -1,0 +1,64 @@
+{
+  "scanner": "custom",
+  "scan_date": "2026-03-29",
+  "project": "spring-petclinic",
+  "description": "Security scan of Spring PetClinic application - found critical vulnerabilities",
+  "vulnerabilities": [
+    {
+      "vuln_type": "sql_injection",
+      "file_path": "src/main/java/org/springframework/samples/petclinic/util/DatabaseUtil.java",
+      "line_number": 40,
+      "severity": "CRITICAL",
+      "description": "SQL injection vulnerability: user input directly concatenated into SQL query string",
+      "code_snippet": "String query = \"SELECT * FROM owners WHERE last_name = '\" + ownerName + \"'\";"
+    },
+    {
+      "vuln_type": "sql_injection",
+      "file_path": "src/main/java/org/springframework/samples/petclinic/util/DatabaseUtil.java",
+      "line_number": 51,
+      "severity": "CRITICAL",
+      "description": "SQL injection vulnerability: user input directly concatenated into SQL query",
+      "code_snippet": "String query = \"SELECT * FROM owners WHERE id = \" + ownerId;"
+    },
+    {
+      "vuln_type": "hardcoded_secrets",
+      "file_path": "src/main/java/org/springframework/samples/petclinic/util/DatabaseUtil.java",
+      "line_number": 31,
+      "severity": "HIGH",
+      "description": "Hardcoded database password in source code",
+      "code_snippet": "private static final String DB_PASSWORD = \"SuperSecret123!\";"
+    },
+    {
+      "vuln_type": "hardcoded_secrets",
+      "file_path": "src/main/java/org/springframework/samples/petclinic/util/ApiConfig.java",
+      "line_number": 25,
+      "severity": "HIGH",
+      "description": "Hardcoded API key in source code",
+      "code_snippet": "public static final String API_KEY = \"sk-live-abc123def456ghi789jkl012mno345\";"
+    },
+    {
+      "vuln_type": "hardcoded_secrets",
+      "file_path": "src/main/java/org/springframework/samples/petclinic/util/ApiConfig.java",
+      "line_number": 32,
+      "severity": "CRITICAL",
+      "description": "Hardcoded AWS credentials in source code",
+      "code_snippet": "public static final String AWS_SECRET_KEY = \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\";"
+    },
+    {
+      "vuln_type": "command_injection",
+      "file_path": "src/main/java/org/springframework/samples/petclinic/util/SystemUtil.java",
+      "line_number": 32,
+      "severity": "CRITICAL",
+      "description": "Command injection vulnerability: user input passed directly to Runtime.exec()",
+      "code_snippet": "Process process = runtime.exec(command);"
+    },
+    {
+      "vuln_type": "command_injection",
+      "file_path": "src/main/java/org/springframework/samples/petclinic/util/SystemUtil.java",
+      "line_number": 50,
+      "severity": "CRITICAL",
+      "description": "Command injection vulnerability: user input concatenated into shell command",
+      "code_snippet": "String command = \"ping -c 4 \" + hostname;"
+    }
+  ]
+}

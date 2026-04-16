@@ -1,0 +1,34 @@
+# SecureGuard AI - Dependencies
+# AI Security Vulnerability Detection & Code Remediation Agent
+
+# Core AI/Agent Framework
+langgraph>=0.0.40
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-openai>=0.0.5
+langchain-anthropic>=0.1.0
+
+# LLM Providers (choose one or both)
+openai>=1.0.0
+anthropic>=0.18.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+
+# Environment & Configuration
+python-dotenv>=1.0.0
+pyyaml>=6.0.0
+
+# Utilities
+rich>=13.0.0  # For beautiful terminal output
+click>=8.1.0  # CLI framework (optional)
+
+# Code Analysis (optional, for enhanced features)
+# ast is built-in
+# difflib is built-in
+
+# Security Scanning Integration (optional)
+# semgrep  # Install separately if needed
+# bandit   # Install separately if needed
