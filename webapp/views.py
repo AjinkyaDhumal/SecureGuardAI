@@ -13,7 +13,7 @@ app = Flask(__name__)
 def search():
     """Search endpoint - VULNERABLE to XSS."""
     query = request.args.get('q', '')
-    
+
     html = f"""
     <html>
     <head><title>Search Results</title></head>
@@ -27,7 +27,7 @@ def search():
     </body>
     </html>
     """
-    
+
     return html
 
 
@@ -41,14 +41,14 @@ def profile(username):
 def add_comment():
     """Add comment - VULNERABLE to stored XSS."""
     comment = request.form.get('comment', '')
-    
+
     response = f"""
     <div class="comment">
         <p>{comment}</p>
         <small>Posted just now</small>
     </div>
     """
-    
+
     return response
 
 

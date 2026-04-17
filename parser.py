@@ -43,7 +43,7 @@ class Vulnerability:
     cwe_id: Optional[str] = None
     owasp_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format."""
         result = {
@@ -70,19 +70,19 @@ class Vulnerability:
 class ScanReportParser:
     """
     Parser for security scan reports from various SAST tools.
-    
+
     Normalizes different scanner output formats into a common schema:
     {vuln_type, file_path, line_number, severity, description, scanner_id}
-    
+
     Supported formats:
     - Semgrep JSON output
     - Bandit JSON output
     - Generic/Custom JSON format
     - OWASP ZAP JSON output
     """
-    
+
     SUPPORTED_FORMATS = ['semgrep', 'bandit', 'owasp_zap', 'snyk', 'custom']
-    
+
     # Comprehensive vulnerability type mapping
     VULN_TYPE_MAPPING = {
         # SQL Injection patterns
@@ -91,7 +91,7 @@ class ScanReportParser:
         'sql-injection': 'sql_injection',
         'sql_injection': 'sql_injection',
         'database-injection': 'sql_injection',
-        
+
         # Command Injection patterns
         'command': 'command_injection',
         'cmd': 'command_injection',
@@ -100,7 +100,7 @@ class ScanReportParser:
         'subprocess': 'command_injection',
         'rce': 'command_injection',
         'remote-code-execution': 'command_injection',
-        
+
         # XSS patterns
         'xss': 'xss',
         'cross-site-scripting': 'xss',
@@ -108,37 +108,37 @@ class ScanReportParser:
         'reflected-xss': 'xss',
         'stored-xss': 'xss',
         'dom-xss': 'xss',
-        
+
         # CSRF patterns
         'csrf': 'csrf',
         'cross-site-request-forgery': 'csrf',
         'xsrf': 'csrf',
-        
+
         # Path Traversal patterns
         'path': 'path_traversal',
         'traversal': 'path_traversal',
         'directory-traversal': 'path_traversal',
         'lfi': 'path_traversal',
         'local-file-inclusion': 'path_traversal',
-        
+
         # XXE patterns
         'xxe': 'xxe',
         'xml-external-entity': 'xxe',
         'xml-injection': 'xxe',
-        
+
         # Deserialization patterns
         'deserial': 'insecure_deserialization',
         'pickle': 'insecure_deserialization',
         'yaml-load': 'insecure_deserialization',
         'marshal': 'insecure_deserialization',
         'object-injection': 'insecure_deserialization',
-        
+
         # Eval/Exec patterns
         'eval': 'insecure_eval',
         'exec': 'insecure_eval',
         'code-injection': 'insecure_eval',
         'dynamic-code': 'insecure_eval',
-        
+
         # Secrets patterns
         'hardcoded': 'hardcoded_secrets',
         'secret': 'hardcoded_secrets',
@@ -146,69 +146,69 @@ class ScanReportParser:
         'api-key': 'hardcoded_secrets',
         'credential': 'hardcoded_secrets',
         'token': 'hardcoded_secrets',
-        
+
         # Hashing patterns
         'md5': 'weak_hashing',
         'sha1': 'weak_hashing',
         'weak-hash': 'weak_hashing',
         'insecure-hash': 'weak_hashing',
-        
+
         # Randomness patterns
         'random': 'weak_randomness',
         'prng': 'weak_randomness',
         'insecure-random': 'weak_randomness',
-        
+
         # JWT patterns
         'jwt': 'broken_jwt_auth',
         'json-web-token': 'broken_jwt_auth',
-        
+
         # CORS patterns
         'cors': 'permissive_cors',
         'cross-origin': 'permissive_cors',
-        
+
         # Debug patterns
         'debug': 'debug_mode_prod',
         'development-mode': 'debug_mode_prod',
-        
+
         # Redirect patterns
         'redirect': 'open_redirect',
         'open-redirect': 'open_redirect',
         'url-redirect': 'open_redirect',
-        
+
         # Upload patterns
         'upload': 'arbitrary_file_upload',
         'file-upload': 'arbitrary_file_upload',
         'unrestricted-upload': 'arbitrary_file_upload',
-        
+
         # Log injection patterns
         'log': 'log_injection',
         'log-injection': 'log_injection',
         'log-forging': 'log_injection',
-        
+
         # LDAP patterns
         'ldap': 'ldap_injection',
         'ldap-injection': 'ldap_injection',
-        
+
         # XPath patterns
         'xpath': 'xpath_injection',
         'xpath-injection': 'xpath_injection',
-        
+
         # Header patterns
         'header': 'missing_security_headers',
         'security-header': 'missing_security_headers',
         'csp': 'missing_security_headers',
         'hsts': 'missing_security_headers',
-        
+
         # ReDoS patterns
         'redos': 'redos',
         'regex': 'redos',
         'catastrophic-backtracking': 'redos',
-        
+
         # SSRF patterns
         'ssrf': 'ssrf',
         'server-side-request-forgery': 'ssrf',
     }
-    
+
     # Severity normalization mapping
     SEVERITY_MAPPING = {
         'critical': 'CRITICAL',
@@ -226,11 +226,11 @@ class ScanReportParser:
         'informational': 'LOW',
         'note': 'LOW',
     }
-    
+
     def __init__(self, verbose: bool = True):
         """
         Initialize the parser.
-        
+
         Args:
             verbose: Whether to print parsing progress
         """
@@ -239,31 +239,31 @@ class ScanReportParser:
         self.raw_report: Optional[Dict[str, Any]] = None
         self.verbose = verbose
         self.parse_errors: List[str] = []
-    
+
     def _log(self, message: str) -> None:
         """Print message if verbose mode is enabled."""
         if self.verbose:
             print(f"[Parser] {message}")
-    
+
     def parse(self, report_path: str) -> List[Dict[str, Any]]:
         """
         Parse a scan report file.
-        
+
         Args:
             report_path: Path to the scan report file (JSON or text)
-            
+
         Returns:
             List of normalized vulnerability dictionaries
         """
         self._log(f"Parsing report: {report_path}")
-        
+
         path = Path(report_path)
         if not path.exists():
             raise FileNotFoundError(f"Report file not found: {report_path}")
-        
+
         # Read the report
         content = path.read_text(encoding='utf-8')
-        
+
         # Try to parse as JSON
         try:
             self.raw_report = json.loads(content)
@@ -271,11 +271,11 @@ class ScanReportParser:
             self._log(f"JSON parse error: {e}")
             # Handle text format
             return self._parse_text_report(content)
-        
+
         # Detect scanner type and parse accordingly
         self.scanner_type = self._detect_scanner_type(self.raw_report)
         self._log(f"Detected scanner type: {self.scanner_type}")
-        
+
         # Parse based on detected format
         parse_methods = {
             'semgrep': self._parse_semgrep,
@@ -284,30 +284,30 @@ class ScanReportParser:
             'snyk': self._parse_snyk,
             'custom': self._parse_custom,
         }
-        
+
         parser = parse_methods.get(self.scanner_type, self._parse_custom)
         parser(self.raw_report)
-        
+
         self._log(f"Found {len(self.vulnerabilities)} vulnerabilities")
-        
+
         if self.parse_errors:
             self._log(f"Parse errors: {len(self.parse_errors)}")
-        
+
         return [v.to_dict() for v in self.vulnerabilities]
-    
+
     def parse_json(self, report_data: Union[Dict, List]) -> List[Dict[str, Any]]:
         """
         Parse a scan report from a dictionary/list directly.
-        
+
         Args:
             report_data: Parsed JSON data (dict or list)
-            
+
         Returns:
             List of normalized vulnerability dictionaries
         """
         self.raw_report = report_data if isinstance(report_data, dict) else {'results': report_data}
         self.scanner_type = self._detect_scanner_type(self.raw_report)
-        
+
         parse_methods = {
             'semgrep': self._parse_semgrep,
             'bandit': self._parse_bandit,
@@ -315,19 +315,19 @@ class ScanReportParser:
             'snyk': self._parse_snyk,
             'custom': self._parse_custom,
         }
-        
+
         parser = parse_methods.get(self.scanner_type, self._parse_custom)
         parser(self.raw_report)
-        
+
         return [v.to_dict() for v in self.vulnerabilities]
-    
+
     def _detect_scanner_type(self, report: Dict[str, Any]) -> str:
         """
         Detect the scanner type from report structure.
-        
+
         Args:
             report: Parsed JSON report
-            
+
         Returns:
             Scanner type identifier
         """
@@ -339,22 +339,22 @@ class ScanReportParser:
                     return 'semgrep'
                 if 'rule_id' in results[0] and 'path' in results[0]:
                     return 'semgrep'
-        
+
         # Bandit detection - has 'results' and 'metrics'
         if 'results' in report and 'metrics' in report:
             results = report.get('results', [])
             if results and isinstance(results[0], dict):
                 if 'issue_severity' in results[0] or 'test_id' in results[0]:
                     return 'bandit'
-        
+
         # Snyk detection
         if 'vulnerabilities' in report and 'packageManager' in report:
             return 'snyk'
-        
+
         # OWASP ZAP detection
         if 'site' in report or 'alerts' in report:
             return 'owasp_zap'
-        
+
         # Check for explicit scanner field
         if 'scanner' in report:
             scanner_name = str(report.get('scanner', '')).lower()
@@ -364,13 +364,13 @@ class ScanReportParser:
                 return 'bandit'
             if 'zap' in scanner_name:
                 return 'owasp_zap'
-        
+
         return 'custom'
-    
+
     def _parse_semgrep(self, report: Dict[str, Any]) -> None:
         """
         Parse Semgrep format report.
-        
+
         Semgrep output structure:
         {
             "results": [
@@ -389,21 +389,21 @@ class ScanReportParser:
         }
         """
         results = report.get('results', [])
-        
+
         for result in results:
             try:
                 check_id = result.get('check_id', result.get('rule_id', ''))
-                
+
                 # Extract metadata
                 extra = result.get('extra', {})
                 metadata = extra.get('metadata', {})
-                
+
                 # Get CWE/OWASP if available
                 cwe_ids = metadata.get('cwe', [])
                 cwe_id = cwe_ids[0] if cwe_ids else None
                 owasp_ids = metadata.get('owasp', [])
                 owasp_id = owasp_ids[0] if owasp_ids else None
-                
+
                 vuln = Vulnerability(
                     vuln_type=self._normalize_vuln_type(check_id),
                     file_path=result.get('path', ''),
@@ -425,11 +425,11 @@ class ScanReportParser:
                 self.vulnerabilities.append(vuln)
             except Exception as e:
                 self.parse_errors.append(f"Semgrep parse error: {e}")
-    
+
     def _parse_bandit(self, report: Dict[str, Any]) -> None:
         """
         Parse Bandit format report.
-        
+
         Bandit output structure:
         {
             "results": [
@@ -449,18 +449,18 @@ class ScanReportParser:
         }
         """
         results = report.get('results', [])
-        
+
         for result in results:
             try:
                 test_id = result.get('test_id', '')
                 test_name = result.get('test_name', '')
-                
+
                 # Combine test_id and test_name for better type detection
                 combined_id = f"{test_id}:{test_name}"
-                
+
                 line_range = result.get('line_range', [])
                 end_line = line_range[-1] if len(line_range) > 1 else None
-                
+
                 vuln = Vulnerability(
                     vuln_type=self._normalize_vuln_type(combined_id),
                     file_path=result.get('filename', ''),
@@ -481,12 +481,12 @@ class ScanReportParser:
                 self.vulnerabilities.append(vuln)
             except Exception as e:
                 self.parse_errors.append(f"Bandit parse error: {e}")
-    
+
     def _parse_owasp_zap(self, report: Dict[str, Any]) -> None:
         """Parse OWASP ZAP format report."""
         # Handle different ZAP output formats
         alerts = report.get('alerts', [])
-        
+
         # Also check for site-based format
         if not alerts and 'site' in report:
             sites = report.get('site', [])
@@ -495,7 +495,7 @@ class ScanReportParser:
                     alerts.extend(site.get('alerts', []))
             elif isinstance(sites, dict):
                 alerts = sites.get('alerts', [])
-        
+
         for alert in alerts:
             try:
                 vuln = Vulnerability(
@@ -516,11 +516,11 @@ class ScanReportParser:
                 self.vulnerabilities.append(vuln)
             except Exception as e:
                 self.parse_errors.append(f"ZAP parse error: {e}")
-    
+
     def _parse_snyk(self, report: Dict[str, Any]) -> None:
         """Parse Snyk format report."""
         vulns = report.get('vulnerabilities', [])
-        
+
         for item in vulns:
             try:
                 vuln = Vulnerability(
@@ -541,11 +541,11 @@ class ScanReportParser:
                 self.vulnerabilities.append(vuln)
             except Exception as e:
                 self.parse_errors.append(f"Snyk parse error: {e}")
-    
+
     def _parse_custom(self, report: Dict[str, Any]) -> None:
         """
         Parse custom/generic format report.
-        
+
         Supports multiple common structures:
         - {"vulnerabilities": [...]}
         - {"findings": [...]}
@@ -561,15 +561,15 @@ class ScanReportParser:
             report.get('results') or
             []
         )
-        
+
         # Handle direct list
         if isinstance(report, list):
             vulns = report
-        
+
         for item in vulns:
             if not isinstance(item, dict):
                 continue
-                
+
             try:
                 # Flexible field extraction with fallbacks
                 vuln_type = (
@@ -582,7 +582,7 @@ class ScanReportParser:
                     item.get('check_id') or
                     'unknown'
                 )
-                
+
                 # Extract file path with fallbacks
                 file_path = (
                     item.get('file_path') or
@@ -592,7 +592,7 @@ class ScanReportParser:
                     (item.get('location', {}).get('file', '') if isinstance(item.get('location'), dict) else '') or
                     ''
                 )
-                
+
                 # Extract line number with fallbacks
                 line_number = (
                     item.get('line_number') or
@@ -602,7 +602,7 @@ class ScanReportParser:
                     (item.get('location', {}).get('line', 0) if isinstance(item.get('location'), dict) else 0) or
                     0
                 )
-                
+
                 severity = (
                     item.get('severity') or
                     item.get('level') or
@@ -610,7 +610,7 @@ class ScanReportParser:
                     item.get('risk') or
                     'MEDIUM'
                 )
-                
+
                 description = (
                     item.get('description') or
                     item.get('message') or
@@ -619,7 +619,7 @@ class ScanReportParser:
                     item.get('issue_text') or
                     ''
                 )
-                
+
                 scanner_id = (
                     item.get('scanner_id') or
                     item.get('id') or
@@ -627,7 +627,7 @@ class ScanReportParser:
                     item.get('finding_id') or
                     'custom'
                 )
-                
+
                 vuln = Vulnerability(
                     vuln_type=self._normalize_vuln_type(str(vuln_type)),
                     file_path=str(file_path),
@@ -644,23 +644,23 @@ class ScanReportParser:
                 self.vulnerabilities.append(vuln)
             except Exception as e:
                 self.parse_errors.append(f"Custom parse error: {e}")
-    
+
     def _parse_text_report(self, content: str) -> List[Dict[str, Any]]:
         """
         Parse a text-based report (grep-like output).
-        
+
         Supports formats like:
         - file.py:10: SQL injection detected
         - [HIGH] file.py:10 - SQL injection
-        
+
         Args:
             content: Raw text content
-            
+
         Returns:
             List of vulnerability dictionaries
         """
         self._log("Attempting text format parsing")
-        
+
         # Common patterns for text-based reports
         patterns = [
             # file:line: message
@@ -670,12 +670,12 @@ class ScanReportParser:
             # file:line:col: message
             r'^(?P<file>[^:]+):(?P<line>\d+):\d+:\s*(?P<message>.+)$',
         ]
-        
+
         for line in content.strip().split('\n'):
             line = line.strip()
             if not line:
                 continue
-                
+
             for pattern in patterns:
                 match = re.match(pattern, line)
                 if match:
@@ -690,33 +690,33 @@ class ScanReportParser:
                     )
                     self.vulnerabilities.append(vuln)
                     break
-        
+
         return [v.to_dict() for v in self.vulnerabilities]
-    
+
     def _normalize_vuln_type(self, raw_type: str) -> str:
         """
         Normalize vulnerability type to standard format.
-        
+
         Args:
             raw_type: Raw vulnerability type from scanner
-            
+
         Returns:
             Normalized vulnerability type
         """
         if not raw_type:
             return 'unknown'
-        
+
         raw_lower = raw_type.lower().strip()
-        
+
         # Direct match first
         if raw_lower in self.VULN_TYPE_MAPPING:
             return self.VULN_TYPE_MAPPING[raw_lower]
-        
+
         # Check for pattern matches
         for pattern, normalized in self.VULN_TYPE_MAPPING.items():
             if pattern in raw_lower:
                 return normalized
-        
+
         # Handle Bandit test IDs
         bandit_mapping = {
             'b102': 'insecure_eval',  # exec_used
@@ -772,52 +772,52 @@ class ScanReportParser:
             'b702': 'xss',  # use_of_mako_templates
             'b703': 'xss',  # django_mark_safe
         }
-        
+
         # Check for Bandit test ID
         for bid, vuln_type in bandit_mapping.items():
             if bid in raw_lower:
                 return vuln_type
-        
+
         # Clean and return as-is if no mapping found
         cleaned = re.sub(r'[^a-z0-9_]', '_', raw_lower)
         cleaned = re.sub(r'_+', '_', cleaned).strip('_')
         return cleaned or 'unknown'
-    
+
     def _normalize_severity(self, raw_severity: str) -> str:
         """
         Normalize severity to standard format.
-        
+
         Args:
             raw_severity: Raw severity from scanner
-            
+
         Returns:
             Normalized severity (CRITICAL, HIGH, MEDIUM, LOW)
         """
         if not raw_severity:
             return 'MEDIUM'
-        
+
         severity_lower = raw_severity.lower().strip()
-        
+
         # Handle compound severities like "High (Confirmed)"
         severity_lower = severity_lower.split('(')[0].strip()
         severity_lower = severity_lower.split(' ')[0].strip()
-        
+
         return self.SEVERITY_MAPPING.get(severity_lower, 'MEDIUM')
-    
+
     def get_summary(self) -> Dict[str, Any]:
         """
         Get a summary of parsed vulnerabilities.
-        
+
         Returns:
             Dict with counts by severity and type
         """
         by_severity: Dict[str, int] = {}
         by_type: Dict[str, int] = {}
-        
+
         for vuln in self.vulnerabilities:
             by_severity[vuln.severity] = by_severity.get(vuln.severity, 0) + 1
             by_type[vuln.vuln_type] = by_type.get(vuln.vuln_type, 0) + 1
-        
+
         return {
             'total': len(self.vulnerabilities),
             'by_severity': by_severity,
@@ -825,14 +825,14 @@ class ScanReportParser:
             'scanner_type': self.scanner_type,
             'parse_errors': len(self.parse_errors),
         }
-    
+
     def get_vulnerabilities_by_severity(self, severity: str) -> List[Dict[str, Any]]:
         """Get vulnerabilities filtered by severity."""
         return [
             v.to_dict() for v in self.vulnerabilities
             if v.severity == severity.upper()
         ]
-    
+
     def get_vulnerabilities_by_type(self, vuln_type: str) -> List[Dict[str, Any]]:
         """Get vulnerabilities filtered by type."""
         return [
@@ -844,11 +844,11 @@ class ScanReportParser:
 def parse_scan_report(report_path: str, verbose: bool = True) -> List[Dict[str, Any]]:
     """
     Convenience function to parse a scan report.
-    
+
     Args:
         report_path: Path to the scan report file
         verbose: Whether to print parsing progress
-        
+
     Returns:
         List of normalized vulnerability dictionaries
     """
@@ -861,10 +861,10 @@ if __name__ == "__main__":
     print("=" * 60)
     print("SecureGuard AI - Parser Module Test")
     print("=" * 60)
-    
+
     import tempfile
     import os
-    
+
     # Test 1: Custom/Generic JSON format
     print("\n--- Test 1: Custom JSON Format ---")
     custom_report = {
@@ -892,20 +892,20 @@ if __name__ == "__main__":
             }
         ]
     }
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(custom_report, f)
         custom_path = f.name
-    
+
     parser = ScanReportParser()
     vulns = parser.parse(custom_path)
-    
+
     print(f"Parsed {len(vulns)} vulnerabilities:")
     for v in vulns:
         print(f"  - [{v['severity']}] {v['vuln_type']} in {v['file_path']}:{v['line_number']}")
     print(f"Summary: {parser.get_summary()}")
     os.unlink(custom_path)
-    
+
     # Test 2: Semgrep-like format
     print("\n--- Test 2: Semgrep Format ---")
     semgrep_report = {
@@ -945,14 +945,14 @@ if __name__ == "__main__":
         "errors": [],
         "version": "1.0.0"
     }
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(semgrep_report, f)
         semgrep_path = f.name
-    
+
     parser2 = ScanReportParser()
     vulns2 = parser2.parse(semgrep_path)
-    
+
     print(f"Parsed {len(vulns2)} vulnerabilities:")
     for v in vulns2:
         print(f"  - [{v['severity']}] {v['vuln_type']} in {v['file_path']}:{v['line_number']}")
@@ -960,7 +960,7 @@ if __name__ == "__main__":
             print(f"    CWE: {v['cwe_id']}")
     print(f"Summary: {parser2.get_summary()}")
     os.unlink(semgrep_path)
-    
+
     # Test 3: Bandit-like format
     print("\n--- Test 3: Bandit Format ---")
     bandit_report = {
@@ -993,20 +993,20 @@ if __name__ == "__main__":
             "SEVERITY.MEDIUM": 1
         }
     }
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(bandit_report, f)
         bandit_path = f.name
-    
+
     parser3 = ScanReportParser()
     vulns3 = parser3.parse(bandit_path)
-    
+
     print(f"Parsed {len(vulns3)} vulnerabilities:")
     for v in vulns3:
         print(f"  - [{v['severity']}] {v['vuln_type']} in {v['file_path']}:{v['line_number']}")
     print(f"Summary: {parser3.get_summary()}")
     os.unlink(bandit_path)
-    
+
     print("\n" + "=" * 60)
     print("All parser tests completed!")
     print("=" * 60)

@@ -78,28 +78,28 @@ Examples:
   python main.py --scan semgrep.json --repo . --output ./fixes
         """
     )
-    
+
     parser.add_argument(
         '--scan', '-s',
         type=str,
         required=True,
         help='Path to the security scan report (JSON format)'
     )
-    
+
     parser.add_argument(
         '--repo', '-r',
         type=str,
         default='.',
         help='Path to the repository to fix (default: current directory)'
     )
-    
+
     parser.add_argument(
         '--output', '-o',
         type=str,
         default='output',
         help='Output directory for patches and reports (default: output)'
     )
-    
+
     parser.add_argument(
         '--mode', '-m',
         type=str,
@@ -107,32 +107,32 @@ Examples:
         default='interactive',
         help='Review mode: interactive (default) or automatic'
     )
-    
+
     parser.add_argument(
         '--max-retries',
         type=int,
         default=3,
         help='Maximum retry attempts per vulnerability (default: 3)'
     )
-    
+
     parser.add_argument(
         '--verbose', '-v',
         action='store_true',
         help='Enable verbose output'
     )
-    
+
     parser.add_argument(
         '--dry-run',
         action='store_true',
         help='Parse and analyze only, do not generate fixes'
     )
-    
+
     parser.add_argument(
         '--filter-only',
         action='store_true',
         help='Only run false positive filtering, do not fix'
     )
-    
+
     return parser.parse_args()
 
 
@@ -154,9 +154,9 @@ def run_pipeline(
 ) -> Dict[str, Any]:
     """
     Run the full SecureGuard AI pipeline.
-    
+
     Pipeline: parse → filter → locate → agent → validate → review → patch → report
-    
+
     Args:
         scan_path: Path to scan report
         repo_path: Path to repository
@@ -166,12 +166,12 @@ def run_pipeline(
         verbose: Verbose output
         dry_run: Parse only, no fixes
         filter_only: Filter only, no fixes
-        
+
     Returns:
         Dict with pipeline results
     """
     start_time = datetime.now()
-    
+
     results = {
         'total_vulnerabilities': 0,
         'false_positives': 0,
@@ -185,24 +185,24 @@ def run_pipeline(
         'vulnerabilities': [],
         'errors': []
     }
-    
+
     # Ensure output directory exists
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    
+
     # ========================================================================
     # STAGE 1: PARSE - Read scan report
     # ========================================================================
     print("\n" + "=" * 70)
     print("📥 STAGE 1: PARSE - Reading scan report")
     print("=" * 70)
-    
+
     try:
         parser = ScanReportParser()
         vulnerabilities = parser.parse(scan_path)
         results['total_vulnerabilities'] = len(vulnerabilities)
         print(f"[Parse] ✓ Found {len(vulnerabilities)} vulnerabilities")
-        
+
         if verbose:
             for v in vulnerabilities[:5]:
                 print(f"  • {v.get('vuln_type', 'unknown')} in {v.get('file_path', 'unknown')}:{v.get('line_number', 0)}")
@@ -212,49 +212,49 @@ def run_pipeline(
         print(f"[Parse] ✗ Error: {e}")
         results['errors'].append(f"Parse error: {e}")
         return results
-    
+
     if not vulnerabilities:
         print("[Parse] No vulnerabilities found in report")
         return results
-    
+
     # ========================================================================
     # STAGE 2: FILTER - Remove false positives
     # ========================================================================
     print("\n" + "=" * 70)
     print("🔍 STAGE 2: FILTER - Removing false positives")
     print("=" * 70)
-    
+
     fp_filter = FalsePositiveFilter(verbose=verbose)
     filtered_vulns = fp_filter.filter_vulnerabilities(vulnerabilities, repo_path)
-    
+
     # Get actionable vulnerabilities (not false positives)
     actionable = [v for v in filtered_vulns if not v.get('is_false_positive', False)]
     results['false_positives'] = len(filtered_vulns) - len(actionable)
-    
+
     print(f"[Filter] ✓ Actionable: {len(actionable)}, False positives: {results['false_positives']}")
-    
+
     if filter_only:
         print("\n[Filter] Filter-only mode enabled, stopping pipeline")
         results['vulnerabilities'] = filtered_vulns
         return results
-    
+
     if dry_run:
         print("\n[DryRun] Dry run mode enabled, stopping pipeline")
         results['vulnerabilities'] = filtered_vulns
         return results
-    
+
     if not actionable:
         print("[Filter] No actionable vulnerabilities after filtering")
         results['vulnerabilities'] = filtered_vulns
         return results
-    
+
     # ========================================================================
     # Initialize pipeline components
     # ========================================================================
     print("\n" + "=" * 70)
     print("⚙️  Initializing pipeline components...")
     print("=" * 70)
-    
+
     locator = CodeLocator(repo_path, verbose=verbose)
     validator = FixValidator(repo_path=repo_path, verbose=verbose)
     patch_gen = PatchGenerator(output_dir=output_dir, verbose=verbose)
@@ -262,14 +262,14 @@ def run_pipeline(
     reviewer = FixReviewer(
         ReviewMode.AUTOMATIC if mode == 'automatic' else ReviewMode.INTERACTIVE
     )
-    
+
     # Initialize agent (may fail if no API key)
     agent = None
     agent_config = AgentConfig(
         max_attempts=max_retries,
         verbose=verbose
     )
-    
+
     try:
         agent = RemediationAgent(agent_config)
         if agent.initialize():
@@ -279,7 +279,7 @@ def run_pipeline(
             print(f"[Agent]   Set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env")
     except Exception as e:
         print(f"[Agent] ⚠ Agent initialization failed: {e}")
-    
+
     # ========================================================================
     # STAGES 3-8: Process each vulnerability
     # ========================================================================
@@ -289,24 +289,24 @@ def run_pipeline(
         print(f"   Type: {vuln.get('vuln_type', 'unknown')}")
         print(f"   File: {vuln.get('file_path', 'unknown')}:{vuln.get('line_number', 0)}")
         print(f"{'=' * 70}")
-        
+
         try:
             # ==== STAGE 3: LOCATE ====
             print(f"\n[3/8] 📍 LOCATE - Finding vulnerable code")
             vuln = locator.locate(vuln)
-            
+
             if vuln.get('locate_error'):
                 print(f"[Locate] ✗ Error: {vuln['locate_error']}")
                 results['vulnerabilities'].append(vuln)
                 continue
-            
+
             original_code = vuln.get('file_content', '') or locator.get_file_content(vuln.get('file_path', ''))
             print(f"[Locate] ✓ Found code context ({len(vuln.get('code_snippet', ''))} chars)")
-            
+
             # ==== STAGE 4: AGENT (FIX GENERATION) ====
             print(f"\n[4/8] 🤖 AGENT - Generating fix")
             results['fixes_attempted'] += 1
-            
+
             if agent and agent.llm:
                 # Use feedback loop for better fixes
                 try:
@@ -322,15 +322,15 @@ def run_pipeline(
                 vuln['status'] = 'NO_LLM'
                 results['vulnerabilities'].append(vuln)
                 continue
-            
+
             # ==== STAGE 5: VALIDATE ====
             print(f"\n[5/8] ✅ VALIDATE - Running tests")
-            
+
             proposed_fix = vuln.get('proposed_fix', '') or vuln.get('fix', '') or vuln.get('best_fix', '')
             if proposed_fix:
                 validation_result = validator.validate(vuln, proposed_fix)
                 vuln.update(validation_result)
-                
+
                 status = vuln.get('status', 'UNKNOWN')
                 if status == 'VERIFIED':
                     results['fixes_verified'] += 1
@@ -341,11 +341,11 @@ def run_pipeline(
             else:
                 vuln['status'] = 'NO_FIX_GENERATED'
                 print(f"[Validate] ✗ No fix to validate")
-            
+
             # ==== STAGE 6: REVIEW ====
             print(f"\n[6/8] 👁️  REVIEW - Developer approval")
             vuln = reviewer.review(vuln)
-            
+
             decision = vuln.get('review_decision', 'rejected')
             if decision == 'approved':
                 results['fixes_approved'] += 1
@@ -355,10 +355,10 @@ def run_pipeline(
                 print(f"[Review] ✗ Fix {decision}")
                 results['vulnerabilities'].append(vuln)
                 continue
-            
+
             # ==== STAGE 7: PATCH ====
             print(f"\n[7/8] 📝 PATCH - Generating git diff")
-            
+
             if original_code and proposed_fix:
                 vuln = patch_gen.generate(vuln, original_code, proposed_fix)
                 if vuln.get('patch_file_path'):
@@ -368,46 +368,46 @@ def run_pipeline(
                     print(f"[Patch] ⚠ No patch generated")
             else:
                 print(f"[Patch] ✗ Missing original code or fix")
-            
+
             # ==== STAGE 8: REPORT ====
             print(f"\n[8/8] 📄 REPORT - Generating documentation")
             vuln = report_gen.generate(vuln)
             if vuln.get('report_file_path'):
                 results['reports_generated'] += 1
                 print(f"[Report] ✓ Generated: {vuln.get('report_filename')}")
-            
+
             results['vulnerabilities'].append(vuln)
-            
+
         except Exception as e:
             print(f"\n[Error] ✗ Failed to process vulnerability: {e}")
             vuln['pipeline_error'] = str(e)
             results['errors'].append(f"Vulnerability {i}: {e}")
             results['vulnerabilities'].append(vuln)
-    
+
     # ========================================================================
     # Generate summary report
     # ========================================================================
     print("\n" + "=" * 70)
     print("📊 GENERATING SUMMARY REPORT")
     print("=" * 70)
-    
+
     try:
         summary_path = report_gen.generate_summary_report(results['vulnerabilities'])
         print(f"[Summary] ✓ Generated: {summary_path}")
     except Exception as e:
         print(f"[Summary] ✗ Error: {e}")
-    
+
     # Calculate duration
     duration = datetime.now() - start_time
     results['duration_seconds'] = duration.total_seconds()
-    
+
     # Save results JSON
     results_path = output_path / f"results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     try:
         with open(results_path, 'w') as f:
             # Convert non-serializable items
             serializable_results = {
-                k: v for k, v in results.items() 
+                k: v for k, v in results.items()
                 if k != 'vulnerabilities'
             }
             serializable_results['vulnerability_count'] = len(results['vulnerabilities'])
@@ -415,7 +415,7 @@ def run_pipeline(
         print(f"[Results] ✓ Saved: {results_path}")
     except Exception as e:
         print(f"[Results] ⚠ Could not save results: {e}")
-    
+
     return results
 
 
@@ -425,10 +425,10 @@ def print_summary(results: Dict[str, Any]):
     print("╔" + "═" * 68 + "╗")
     print("║" + " SECUREGUARD AI - EXECUTION SUMMARY ".center(68) + "║")
     print("╚" + "═" * 68 + "╝")
-    
+
     duration = results.get('duration_seconds', 0)
     duration_str = f"{int(duration // 60)}m {int(duration % 60)}s" if duration >= 60 else f"{duration:.1f}s"
-    
+
     print(f"""
 📊 STATISTICS
    ─────────────────────────────────────────
@@ -447,50 +447,50 @@ def print_summary(results: Dict[str, Any]):
    ─────────────────────────────────────────
    Duration:               {duration_str}
 """)
-    
+
     if results['fixes_attempted'] > 0:
         accuracy = (results['fixes_verified'] / results['fixes_attempted']) * 100
         print(f"   Fix Accuracy:          {accuracy:.1f}%")
-    
+
     if results.get('errors'):
         print(f"\n⚠️  ERRORS ({len(results['errors'])}):")
         for err in results['errors'][:5]:
             print(f"   • {err}")
         if len(results['errors']) > 5:
             print(f"   ... and {len(results['errors']) - 5} more")
-    
+
     print("\n" + "=" * 70)
 
 
 def main():
     """Main entry point."""
     print_banner()
-    
+
     args = parse_arguments()
-    
+
     print(f"\n📁 Scan Report: {args.scan}")
     print(f"📂 Repository:  {args.repo}")
     print(f"📤 Output:      {args.output}")
     print(f"🔧 Mode:        {args.mode}")
     print(f"🔄 Max Retries: {args.max_retries}")
-    
+
     # Validate inputs
     scan_path = Path(args.scan)
     repo_path = Path(args.repo)
     output_path = Path(args.output)
-    
+
     if not scan_path.exists():
         print(f"\n❌ Error: Scan report not found: {args.scan}")
         sys.exit(1)
-    
+
     if not repo_path.exists():
         print(f"\n❌ Error: Repository not found: {args.repo}")
         sys.exit(1)
-    
+
     # Create output directory
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"\n📂 Output directory: {output_path.absolute()}")
-    
+
     # Run pipeline
     try:
         results = run_pipeline(
@@ -503,9 +503,9 @@ def main():
             dry_run=args.dry_run,
             filter_only=args.filter_only
         )
-        
+
         print_summary(results)
-        
+
         # Final status
         print("\n" + "=" * 70)
         if results['patches_generated'] > 0:
@@ -524,10 +524,10 @@ def main():
         else:
             print("ℹ️  No vulnerabilities found in scan report.")
         print("=" * 70)
-        
+
         # Exit with appropriate code
         sys.exit(0 if results['patches_generated'] > 0 else 1)
-        
+
     except KeyboardInterrupt:
         print("\n\n⚠️  Interrupted by user")
         sys.exit(130)

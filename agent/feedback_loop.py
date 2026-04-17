@@ -59,7 +59,7 @@ class AttemptResult:
     validation_status: str  # PASSED, FAILED, SYNTAX_ERROR
     reasoning: List[str] = field(default_factory=list)
     reflection: Optional[str] = None  # Agent's reflection on what went wrong
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -83,7 +83,7 @@ class FeedbackLoopConfig:
     verbose: bool = True
 
 
-@dataclass 
+@dataclass
 class FeedbackLoopResult:
     """Result of the feedback loop execution."""
     status: FixStatus
@@ -92,7 +92,7 @@ class FeedbackLoopResult:
     best_attempt_number: int
     total_attempts: int
     reasoning_chain: List[str]
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -112,24 +112,24 @@ class FeedbackLoopResult:
 def build_initial_prompt(vulnerability: Dict[str, Any], fix_template: str = "") -> str:
     """
     Build the initial prompt for the first fix attempt.
-    
+
     Args:
         vulnerability: Dict containing vulnerability details
         fix_template: Optional fix template/strategy
-        
+
     Returns:
         Formatted prompt string for the agent
     """
     code = vulnerability.get('code_snippet', '') or vulnerability.get('code', '')
     context = vulnerability.get('code_context', '') or vulnerability.get('full_context', '')
-    
+
     template_section = ""
     if fix_template:
         template_section = f"""
 FIX STRATEGY:
 {fix_template}
 """
-    
+
     return f"""Fix the following security vulnerability:
 
 VULNERABILITY DETAILS:
@@ -165,15 +165,15 @@ def build_retry_prompt(
 ) -> str:
     """
     Build a retry prompt that includes previous failure context.
-    
+
     This prompt forces the agent to reflect on what went wrong
     before generating a new fix.
-    
+
     Args:
         vulnerability: Dict containing vulnerability details
         previous_attempts: List of previous AttemptResult objects
         fix_template: Optional fix template/strategy
-        
+
     Returns:
         Formatted retry prompt string
     """
@@ -201,18 +201,18 @@ FAILURE OUTPUT:
 YOUR REFLECTION:
 {attempt.reflection}
 """
-    
+
     code = vulnerability.get('code_snippet', '') or vulnerability.get('code', '')
     context = vulnerability.get('code_context', '') or vulnerability.get('full_context', '')
-    
+
     template_section = ""
     if fix_template:
         template_section = f"""
 FIX STRATEGY (use this as guidance):
 {fix_template}
 """
-    
-    return f"""You are fixing: {vulnerability.get('vuln_type', 'unknown')} 
+
+    return f"""You are fixing: {vulnerability.get('vuln_type', 'unknown')}
 in {vulnerability.get('file_path', 'unknown')} at line {vulnerability.get('line_number', 'unknown')}.
 
 ⚠️  YOUR PREVIOUS ATTEMPTS FAILED. Review the history below:
@@ -253,11 +253,11 @@ def build_reflection_prompt(
 ) -> str:
     """
     Build a prompt to get the agent's reflection on a failed attempt.
-    
+
     Args:
         attempt: The failed attempt result
         vulnerability: Dict containing vulnerability details
-        
+
     Returns:
         Formatted reflection prompt
     """
@@ -289,29 +289,29 @@ Be specific and actionable. This reflection will guide your next fix attempt."""
 def extract_code_from_response(response: str) -> str:
     """
     Extract code from the agent's response.
-    
+
     Handles:
     - Markdown code blocks (```python ... ```)
     - Plain code responses
     - Mixed content (extracts code portion)
-    
+
     Args:
         response: Raw response string from the agent
-        
+
     Returns:
         Extracted code string
     """
     if not response:
         return ""
-    
+
     response = response.strip()
-    
+
     # Handle markdown code blocks
     if "```" in response:
         lines = response.split('\n')
         code_lines = []
         in_code_block = False
-        
+
         for line in lines:
             if line.strip().startswith("```"):
                 if in_code_block:
@@ -321,13 +321,13 @@ def extract_code_from_response(response: str) -> str:
                     # Start of code block
                     in_code_block = True
                     continue
-            
+
             if in_code_block:
                 code_lines.append(line)
-        
+
         if code_lines:
             return '\n'.join(code_lines)
-    
+
     # No code blocks found, return as-is
     return response
 
@@ -339,12 +339,12 @@ def extract_code_from_response(response: str) -> str:
 def validate_fix(file_path: str, fix_code: str, test_command: str = "") -> Dict[str, Any]:
     """
     Validate a fix by applying it and running tests.
-    
+
     Args:
         file_path: Path to the original file
         fix_code: The proposed fix code
         test_command: Optional test command to run
-        
+
     Returns:
         Dict with validation results
     """
@@ -354,7 +354,7 @@ def validate_fix(file_path: str, fix_code: str, test_command: str = "") -> Dict[
             'fix_code': fix_code,
             'test_command': test_command
         })
-        
+
         return json.loads(result_json)
     except Exception as e:
         return {
@@ -373,25 +373,25 @@ def validate_fix(file_path: str, fix_code: str, test_command: str = "") -> Dict[
 class FeedbackLoop:
     """
     Manages the retry loop with failure context injection.
-    
+
     This class:
     1. Tracks all fix attempts with their results
     2. Injects failure context into retry prompts
     3. Forces reflection on failed attempts
     4. Selects the best fix after max attempts
     """
-    
+
     def __init__(self, config: Optional[FeedbackLoopConfig] = None):
         """Initialize the feedback loop."""
         self.config = config or FeedbackLoopConfig()
         self.attempts: List[AttemptResult] = []
         self.reasoning_chain: List[str] = []
-        
+
     def reset(self):
         """Reset the feedback loop state."""
         self.attempts = []
         self.reasoning_chain = []
-    
+
     def get_prompt(
         self,
         vulnerability: Dict[str, Any],
@@ -399,11 +399,11 @@ class FeedbackLoop:
     ) -> str:
         """
         Get the appropriate prompt based on current attempt number.
-        
+
         Args:
             vulnerability: Dict containing vulnerability details
             fix_template: Optional fix template/strategy
-            
+
         Returns:
             Formatted prompt string
         """
@@ -411,7 +411,7 @@ class FeedbackLoop:
             return build_initial_prompt(vulnerability, fix_template)
         else:
             return build_retry_prompt(vulnerability, self.attempts, fix_template)
-    
+
     def record_attempt(
         self,
         fix_code: str,
@@ -420,17 +420,17 @@ class FeedbackLoop:
     ) -> AttemptResult:
         """
         Record a fix attempt and its results.
-        
+
         Args:
             fix_code: The fix code that was attempted
             test_result: Results from validation
             reflection: Optional agent reflection on failure
-            
+
         Returns:
             The recorded AttemptResult
         """
         attempt_num = len(self.attempts) + 1
-        
+
         attempt = AttemptResult(
             attempt_number=attempt_num,
             fix_code=fix_code,
@@ -441,9 +441,9 @@ class FeedbackLoop:
             reasoning=[],
             reflection=reflection
         )
-        
+
         self.attempts.append(attempt)
-        
+
         # Update reasoning chain
         status = test_result.get('status', 'UNKNOWN')
         if status in ['PASSED', 'SYNTAX_OK']:
@@ -452,24 +452,24 @@ class FeedbackLoop:
             self.reasoning_chain.append(
                 f"[Attempt {attempt_num}] ✗ Fix failed: {status} - {test_result.get('output', '')[:100]}"
             )
-        
+
         return attempt
-    
+
     def should_continue(self) -> bool:
         """Check if we should continue trying."""
         if len(self.attempts) >= self.config.max_attempts:
             return False
-        
+
         # Check if last attempt passed
         if self.attempts and self.attempts[-1].validation_status in ['PASSED', 'SYNTAX_OK']:
             return False
-        
+
         return True
-    
+
     def get_best_attempt(self) -> Optional[AttemptResult]:
         """
         Get the best attempt based on test results.
-        
+
         Priority:
         1. Any attempt that passed
         2. Attempt with fewest failures
@@ -477,34 +477,34 @@ class FeedbackLoop:
         """
         if not self.attempts:
             return None
-        
+
         # First, check for any passing attempt
         for attempt in self.attempts:
             if attempt.validation_status in ['PASSED', 'SYNTAX_OK']:
                 return attempt
-        
+
         # Find attempt with fewest failures (prefer syntax OK over syntax error)
         def score_attempt(a: AttemptResult) -> tuple:
             # Lower is better: (has_syntax_error, failed_count, -attempt_num)
             has_syntax_error = 1 if a.validation_status == 'SYNTAX_ERROR' else 0
             return (has_syntax_error, a.tests_failed, -a.attempt_number)
-        
+
         return min(self.attempts, key=score_attempt)
-    
+
     def get_result(self) -> FeedbackLoopResult:
         """
         Get the final result of the feedback loop.
-        
+
         Returns:
             FeedbackLoopResult with status, best fix, and history
         """
         best = self.get_best_attempt()
-        
+
         if best and best.validation_status in ['PASSED', 'SYNTAX_OK']:
             status = FixStatus.VERIFIED
         else:
             status = FixStatus.UNVERIFIED
-        
+
         return FeedbackLoopResult(
             status=status,
             fix=best.fix_code if best else "",
@@ -513,7 +513,7 @@ class FeedbackLoop:
             total_attempts=len(self.attempts),
             reasoning_chain=self.reasoning_chain
         )
-    
+
     def run(
         self,
         vulnerability: Dict[str, Any],
@@ -523,31 +523,31 @@ class FeedbackLoop:
     ) -> FeedbackLoopResult:
         """
         Run the complete feedback loop.
-        
+
         Args:
             vulnerability: Dict containing vulnerability details
             generate_fix_fn: Function that takes a prompt and returns fix code
             fix_template: Optional fix template/strategy
             generate_reflection_fn: Optional function to generate reflection
-            
+
         Returns:
             FeedbackLoopResult with final status and best fix
         """
         self.reset()
-        
+
         if self.config.verbose:
             print(f"\n[FeedbackLoop] Starting remediation for: {vulnerability.get('vuln_type')}")
             print(f"[FeedbackLoop] Max attempts: {self.config.max_attempts}")
-        
+
         while self.should_continue():
             attempt_num = len(self.attempts) + 1
-            
+
             if self.config.verbose:
                 print(f"\n[FeedbackLoop] ━━━ Attempt {attempt_num}/{self.config.max_attempts} ━━━")
-            
+
             # Get the prompt
             prompt = self.get_prompt(vulnerability, fix_template)
-            
+
             # Generate fix
             try:
                 raw_response = generate_fix_fn(prompt)
@@ -556,7 +556,7 @@ class FeedbackLoop:
                 if self.config.verbose:
                     print(f"[FeedbackLoop] Error generating fix: {e}")
                 fix_code = ""
-            
+
             if not fix_code:
                 if self.config.verbose:
                     print("[FeedbackLoop] No fix code generated")
@@ -565,23 +565,23 @@ class FeedbackLoop:
                     test_result={'passed': 0, 'failed': 1, 'output': 'No fix generated', 'status': 'ERROR'}
                 )
                 continue
-            
+
             if self.config.verbose:
                 print(f"[FeedbackLoop] Generated fix ({len(fix_code)} chars)")
-            
+
             # Validate the fix
             test_result = validate_fix(
                 vulnerability.get('file_path', ''),
                 fix_code
             )
-            
+
             status = test_result.get('status', 'UNKNOWN')
             if self.config.verbose:
                 if status in ['PASSED', 'SYNTAX_OK']:
                     print(f"[FeedbackLoop] ✓ Validation PASSED")
                 else:
                     print(f"[FeedbackLoop] ✗ Validation FAILED: {status}")
-            
+
             # Generate reflection if failed and function provided
             reflection = None
             if status not in ['PASSED', 'SYNTAX_OK'] and generate_reflection_fn:
@@ -596,30 +596,30 @@ class FeedbackLoop:
                     )
                     reflection_prompt = build_reflection_prompt(attempt_for_reflection, vulnerability)
                     reflection = generate_reflection_fn(reflection_prompt)
-                    
+
                     if self.config.verbose and reflection:
                         print(f"[FeedbackLoop] Reflection: {reflection[:100]}...")
                 except Exception as e:
                     if self.config.verbose:
                         print(f"[FeedbackLoop] Error generating reflection: {e}")
-            
+
             # Record the attempt
             self.record_attempt(fix_code, test_result, reflection)
-            
+
             # Check if we succeeded
             if status in ['PASSED', 'SYNTAX_OK']:
                 if self.config.verbose:
                     print(f"\n[FeedbackLoop] ✓ Fix VERIFIED on attempt {attempt_num}")
                 break
-        
+
         result = self.get_result()
-        
+
         if self.config.verbose:
             print(f"\n[FeedbackLoop] ━━━ Final Result ━━━")
             print(f"[FeedbackLoop] Status: {result.status.value}")
             print(f"[FeedbackLoop] Total attempts: {result.total_attempts}")
             print(f"[FeedbackLoop] Best attempt: #{result.best_attempt_number}")
-        
+
         return result
 
 
@@ -636,16 +636,16 @@ def run_with_feedback(
 ) -> Dict[str, Any]:
     """
     Run the feedback loop on a vulnerability.
-    
+
     This is the main entry point for using the feedback loop.
-    
+
     Args:
         generate_fix_fn: Function that takes a prompt and returns fix code
         vulnerability: Dict containing vulnerability details
         config: Optional FeedbackLoopConfig
         fix_template: Optional fix template/strategy
         generate_reflection_fn: Optional function to generate reflection
-        
+
     Returns:
         Dict with status (VERIFIED/UNVERIFIED), fix, and attempts history
     """
@@ -667,7 +667,7 @@ if __name__ == "__main__":
     print("=" * 70)
     print("SecureGuard AI - Feedback Loop Test")
     print("=" * 70)
-    
+
     # Test vulnerability
     test_vuln = {
         'vuln_type': 'sql_injection',
@@ -683,13 +683,13 @@ def get_user(user_id):
     cursor.execute(query)
     return cursor.fetchone()'''
     }
-    
+
     # Mock fix generator that improves on each attempt
     attempt_counter = [0]
-    
+
     def mock_generate_fix(prompt: str) -> str:
         attempt_counter[0] += 1
-        
+
         if attempt_counter[0] == 1:
             # First attempt: still has issues
             return '''def get_user(user_id):
@@ -710,36 +710,36 @@ def get_user(user_id):
     query = "SELECT * FROM users WHERE id = ?"
     cursor.execute(query, (user_id,))
     return cursor.fetchone()'''
-    
+
     def mock_generate_reflection(prompt: str) -> str:
         return "I assumed the cursor.execute would work without parameters. I will add the user_id as a parameter tuple."
-    
+
     # Test the feedback loop
     print("\n--- Testing Feedback Loop ---\n")
-    
+
     config = FeedbackLoopConfig(max_attempts=3, verbose=True)
-    
+
     result = run_with_feedback(
         generate_fix_fn=mock_generate_fix,
         vulnerability=test_vuln,
         config=config,
         generate_reflection_fn=mock_generate_reflection
     )
-    
+
     print("\n--- Final Result ---")
     print(json.dumps({
         'status': result['status'],
         'total_attempts': result['total_attempts'],
         'best_attempt_number': result['best_attempt_number']
     }, indent=2))
-    
+
     print("\n--- Best Fix ---")
     print(result['fix'])
-    
+
     print("\n--- Reasoning Chain ---")
     for step in result['reasoning_chain']:
         print(f"  • {step}")
-    
+
     print("\n" + "=" * 70)
     print("Feedback loop test completed!")
     print("=" * 70)

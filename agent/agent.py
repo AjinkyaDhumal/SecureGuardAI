@@ -59,16 +59,16 @@ class AgentConfig:
     max_attempts: int = None
     verbose: bool = None
     repo_path: str = None
-    
+
     def __post_init__(self):
         """Load configuration from environment variables if not explicitly set."""
         from dotenv import load_dotenv
         load_dotenv()
-        
+
         # Load from environment with fallback to defaults
         if self.model_provider is None:
             self.model_provider = os.getenv("LLM_PROVIDER", "anthropic")
-        
+
         if self.model_name is None:
             # Default model based on provider
             default_models = {
@@ -76,23 +76,23 @@ class AgentConfig:
                 "openai": "gpt-4o"  # GPT-4o is faster and cheaper than gpt-4
             }
             self.model_name = os.getenv("LLM_MODEL", default_models.get(self.model_provider, "claude-sonnet-4-20250514"))
-        
+
         if self.temperature is None:
             self.temperature = float(os.getenv("LLM_TEMPERATURE", "0.0"))
-        
+
         if self.max_tokens is None:
             self.max_tokens = int(os.getenv("LLM_MAX_TOKENS", "2048"))
-        
+
         if self.max_attempts is None:
             self.max_attempts = int(os.getenv("MAX_RETRIES", "3"))
-        
+
         if self.verbose is None:
             verbose_str = os.getenv("VERBOSE", "true").lower()
             self.verbose = verbose_str in ("true", "1", "yes")
-        
+
         if self.repo_path is None:
             self.repo_path = os.getenv("REPO_PATH", ".")
-    
+
     @property
     def llm_model(self) -> str:
         """Return the full model identifier."""
@@ -122,7 +122,7 @@ class AgentStatus(str, Enum):
 class AgentState(TypedDict):
     """
     State object for the LangGraph workflow.
-    
+
     This state is passed between nodes and updated at each step.
     """
     # Vulnerability information
@@ -131,31 +131,31 @@ class AgentState(TypedDict):
     line_number: int
     severity: str
     description: str
-    
+
     # Code context
     code: str  # Original vulnerable code
     code_context: str  # Surrounding code context
     imports: List[str]  # File imports
     function_name: Optional[str]  # Enclosing function
     class_name: Optional[str]  # Enclosing class
-    
+
     # Fix generation
     fix: str  # Proposed fix code
     fix_explanation: str  # Explanation of the fix
-    
+
     # Validation
     test_result: Dict[str, Any]  # Test results
     validation_status: str  # PASSED, FAILED, SYNTAX_ERROR
     validation_message: str  # Detailed validation message
-    
+
     # Retry tracking
     attempts: int  # Current attempt count
     max_attempts: int  # Maximum retry attempts
-    
+
     # History
     messages: Annotated[List, add_messages]  # Conversation history
     reasoning_chain: List[str]  # Step-by-step reasoning
-    
+
     # Final status
     status: str  # IN_PROGRESS, FIXED, ESCALATED, ERROR
     error: Optional[str]  # Error message if any
@@ -195,27 +195,27 @@ def create_initial_state(vulnerability: Dict[str, Any], config: AgentConfig) -> 
 def is_valid_api_key(key: Optional[str], provider: str) -> bool:
     """
     Check if an API key looks valid (not a placeholder).
-    
+
     Args:
         key: The API key to check
         provider: Provider name ('anthropic' or 'openai')
-        
+
     Returns:
         True if key appears valid, False otherwise
     """
     if not key:
         return False
-    
+
     # Check for placeholder values
     placeholders = [
         'your-', 'sk-xxx', 'replace', 'insert', 'add-your',
         'example', 'dummy', 'test-key', 'placeholder'
     ]
-    
+
     key_lower = key.lower()
     if any(placeholder in key_lower for placeholder in placeholders):
         return False
-    
+
     # Check for minimum length and proper prefix
     if provider == "anthropic":
         # Anthropic keys start with 'sk-ant-' and are ~100+ chars
@@ -227,26 +227,26 @@ def is_valid_api_key(key: Optional[str], provider: str) -> bool:
         if key.startswith('sk-or-v1-'):
             return len(key) > 60  # OpenRouter keys
         return key.startswith('sk-') and len(key) > 40  # Direct OpenAI keys
-    
+
     return len(key) > 20  # Generic check
 
 
 def get_llm(config: AgentConfig):
     """
     Initialize the LLM based on configuration.
-    
+
     Args:
         config: AgentConfig with model settings
-        
+
     Returns:
         ChatModel instance (ChatAnthropic or ChatOpenAI)
-        
+
     Raises:
         ValueError: If API key is missing or invalid
     """
     if config.model_provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
-        
+
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not is_valid_api_key(api_key, "anthropic"):
             raise ValueError(
@@ -254,7 +254,7 @@ def get_llm(config: AgentConfig):
                 "Please set a valid Anthropic API key in your .env file. "
                 "Get one at: https://console.anthropic.com/"
             )
-        
+
         return ChatAnthropic(
             model=config.model_name,
             temperature=config.temperature,
@@ -262,7 +262,7 @@ def get_llm(config: AgentConfig):
         )
     elif config.model_provider == "openai":
         from langchain_openai import ChatOpenAI
-        
+
         api_key = os.getenv("OPENAI_API_KEY")
         if not is_valid_api_key(api_key, "openai"):
             raise ValueError(
@@ -270,23 +270,23 @@ def get_llm(config: AgentConfig):
                 "Please set a valid OpenAI API key in your .env file. "
                 "Get one at: https://platform.openai.com/api-keys"
             )
-        
+
         # Check if using OpenRouter (key starts with sk-or-v1-)
         base_url = None
         if api_key.startswith('sk-or-v1-'):
             base_url = "https://openrouter.ai/api/v1"
             if config.verbose:
                 print("[Agent] Detected OpenRouter API key, using OpenRouter endpoint")
-        
+
         llm_kwargs = {
             "model": config.model_name,
             "temperature": config.temperature,
             "max_tokens": config.max_tokens,
         }
-        
+
         if base_url:
             llm_kwargs["base_url"] = base_url
-        
+
         return ChatOpenAI(**llm_kwargs)
     else:
         raise ValueError(f"Unknown model provider: {config.model_provider}")
@@ -371,7 +371,7 @@ Provide a brief assessment (2-3 sentences) and conclude with either:
 def generate_fix_node(state: AgentState, config: AgentConfig, llm, template_loader: TemplateLoader) -> Dict[str, Any]:
     """
     Node: Generate a fix for the vulnerability using LLM.
-    
+
     This node:
     1. Loads the appropriate fix template
     2. Builds the prompt with code context
@@ -380,13 +380,13 @@ def generate_fix_node(state: AgentState, config: AgentConfig, llm, template_load
     """
     attempts = state['attempts'] + 1
     reasoning = [f"[Attempt {attempts}/{state['max_attempts']}] Generating fix for {state['vuln_type']}"]
-    
+
     # Get fix template
     template = template_loader.get_template_for_vuln(state['vuln_type'])
     fix_template = ""
     if template:
         fix_template = f"FIX STRATEGY:\n{template.fix_strategy}\n\n{template.template}"
-    
+
     # Build retry context if this is a retry
     retry_context = ""
     if attempts > 1 and state.get('validation_message'):
@@ -399,7 +399,7 @@ Please fix the issues and try again. Focus on:
 2. Addressing the validation feedback
 """
         reasoning.append(f"Previous attempt failed: {state['validation_message'][:100]}...")
-    
+
     # Build the prompt
     prompt = FIX_GENERATION_PROMPT.format(
         vuln_type=state['vuln_type'],
@@ -412,17 +412,17 @@ Please fix the issues and try again. Focus on:
         code_context=state['code_context'],
         retry_context=retry_context
     )
-    
+
     # Call LLM
     messages = [
         SystemMessage(content=AGENT_SYSTEM_PROMPT),
         HumanMessage(content=prompt)
     ]
-    
+
     try:
         response = llm.invoke(messages)
         fix_code = response.content.strip()
-        
+
         # Clean up any markdown artifacts
         if fix_code.startswith("```"):
             lines = fix_code.split('\n')
@@ -432,9 +432,9 @@ Please fix the issues and try again. Focus on:
             if lines and lines[-1].strip() == "```":
                 lines = lines[:-1]
             fix_code = '\n'.join(lines)
-        
+
         reasoning.append(f"Generated fix ({len(fix_code)} chars)")
-        
+
         return {
             'fix': fix_code,
             'attempts': attempts,
@@ -444,7 +444,7 @@ Please fix the issues and try again. Focus on:
                 AIMessage(content=fix_code)
             ]
         }
-        
+
     except Exception as e:
         reasoning.append(f"Error generating fix: {str(e)}")
         return {
@@ -459,14 +459,14 @@ Please fix the issues and try again. Focus on:
 def validate_node(state: AgentState, config: AgentConfig) -> Dict[str, Any]:
     """
     Node: Validate the proposed fix.
-    
+
     This node:
     1. Applies the fix to a temp file
     2. Runs syntax check and tests
     3. Updates state with validation results
     """
     reasoning = [f"Validating fix for {state['file_path']}"]
-    
+
     if not state['fix']:
         return {
             'validation_status': ValidationStatus.ERROR.value,
@@ -474,10 +474,10 @@ def validate_node(state: AgentState, config: AgentConfig) -> Dict[str, Any]:
             'test_result': {'status': 'ERROR', 'output': 'No fix code'},
             'reasoning_chain': state['reasoning_chain'] + reasoning + ['No fix code to validate']
         }
-    
+
     # Run tests using the run_tests_tool
     import json
-    
+
     try:
         # Use the tool to validate
         result_json = run_tests_tool.invoke({
@@ -485,12 +485,12 @@ def validate_node(state: AgentState, config: AgentConfig) -> Dict[str, Any]:
             'fix_code': state['fix'],
             'test_command': ''
         })
-        
+
         test_result = json.loads(result_json)
-        
+
         # Determine validation status
         status = test_result.get('status', 'UNKNOWN')
-        
+
         if status in ['PASSED', 'SYNTAX_OK']:
             validation_status = ValidationStatus.PASSED.value
             validation_message = f"Validation passed: {test_result.get('passed', 0)} tests passed"
@@ -503,14 +503,14 @@ def validate_node(state: AgentState, config: AgentConfig) -> Dict[str, Any]:
             validation_status = ValidationStatus.FAILED.value
             validation_message = f"Tests failed: {test_result.get('failed', 0)} failures. {test_result.get('output', '')[:200]}"
             reasoning.append(f"✗ Validation FAILED: {test_result.get('failed', 0)} test failures")
-        
+
         return {
             'test_result': test_result,
             'validation_status': validation_status,
             'validation_message': validation_message,
             'reasoning_chain': state['reasoning_chain'] + reasoning
         }
-        
+
     except Exception as e:
         reasoning.append(f"Validation error: {str(e)}")
         return {
@@ -524,30 +524,30 @@ def validate_node(state: AgentState, config: AgentConfig) -> Dict[str, Any]:
 def review_node(state: AgentState, config: AgentConfig, llm) -> Dict[str, Any]:
     """
     Node: Review the fix for correctness and safety.
-    
+
     This node:
     1. Calls LLM to review the fix
     2. Checks for any remaining issues
     3. Marks the fix as complete or needs revision
     """
     reasoning = ["Reviewing fix for correctness and safety"]
-    
+
     # Build review prompt
     prompt = REVIEW_PROMPT.format(
         vuln_type=state['vuln_type'],
         original_code=state['code'] or state['code_context'],
         fixed_code=state['fix']
     )
-    
+
     messages = [
         SystemMessage(content="You are a security code reviewer. Be thorough but concise."),
         HumanMessage(content=prompt)
     ]
-    
+
     try:
         response = llm.invoke(messages)
         review_text = response.content.strip()
-        
+
         # Check if approved
         if "APPROVED" in review_text.upper():
             reasoning.append("✓ Fix APPROVED by reviewer")
@@ -565,7 +565,7 @@ def review_node(state: AgentState, config: AgentConfig, llm) -> Dict[str, Any]:
                 'status': AgentStatus.FIXED.value,
                 'reasoning_chain': state['reasoning_chain'] + reasoning
             }
-            
+
     except Exception as e:
         reasoning.append(f"Review error: {str(e)}")
         # Don't fail the whole process if review fails
@@ -579,14 +579,14 @@ def review_node(state: AgentState, config: AgentConfig, llm) -> Dict[str, Any]:
 def escalate_node(state: AgentState) -> Dict[str, Any]:
     """
     Node: Escalate when max attempts reached.
-    
+
     This node marks the vulnerability for human review.
     """
     reasoning = [
         f"Max attempts ({state['max_attempts']}) reached",
         "Escalating to human review"
     ]
-    
+
     return {
         'status': AgentStatus.ESCALATED.value,
         'reasoning_chain': state['reasoning_chain'] + reasoning
@@ -600,7 +600,7 @@ def escalate_node(state: AgentState) -> Dict[str, Any]:
 def should_retry_or_review(state: AgentState) -> Literal["review", "generate_fix", "escalate"]:
     """
     Routing function: Decide next step after validation.
-    
+
     Returns:
         - "review" if validation passed
         - "generate_fix" if validation failed and attempts < max
@@ -608,10 +608,10 @@ def should_retry_or_review(state: AgentState) -> Literal["review", "generate_fix
     """
     if state['validation_status'] == ValidationStatus.PASSED.value:
         return "review"
-    
+
     if state['attempts'] >= state['max_attempts']:
         return "escalate"
-    
+
     return "generate_fix"
 
 
@@ -622,7 +622,7 @@ def should_retry_or_review(state: AgentState) -> Literal["review", "generate_fix
 def build_agent_graph(config: AgentConfig, llm, template_loader: TemplateLoader) -> StateGraph:
     """
     Build the LangGraph workflow.
-    
+
     Graph structure:
         START → generate_fix → validate → [routing]
                                          → PASS → review → END
@@ -631,7 +631,7 @@ def build_agent_graph(config: AgentConfig, llm, template_loader: TemplateLoader)
     """
     # Create the graph
     workflow = StateGraph(AgentState)
-    
+
     # Add nodes with bound parameters
     workflow.add_node(
         "generate_fix",
@@ -649,13 +649,13 @@ def build_agent_graph(config: AgentConfig, llm, template_loader: TemplateLoader)
         "escalate",
         escalate_node
     )
-    
+
     # Set entry point
     workflow.set_entry_point("generate_fix")
-    
+
     # Add edges
     workflow.add_edge("generate_fix", "validate")
-    
+
     # Conditional routing after validation
     workflow.add_conditional_edges(
         "validate",
@@ -666,11 +666,11 @@ def build_agent_graph(config: AgentConfig, llm, template_loader: TemplateLoader)
             "escalate": "escalate"
         }
     )
-    
+
     # Terminal edges
     workflow.add_edge("review", END)
     workflow.add_edge("escalate", END)
-    
+
     return workflow
 
 
@@ -681,11 +681,11 @@ def build_agent_graph(config: AgentConfig, llm, template_loader: TemplateLoader)
 class RemediationAgent:
     """
     The main remediation agent class.
-    
+
     Wraps the LangGraph workflow and provides a simple interface
     for processing vulnerabilities.
     """
-    
+
     def __init__(self, config: Optional[AgentConfig] = None):
         """Initialize the agent with configuration."""
         self.config = config or AgentConfig()
@@ -693,11 +693,11 @@ class RemediationAgent:
         self.llm = None
         self.graph = None
         self.compiled_graph = None
-        
+
     def initialize(self) -> bool:
         """
         Initialize the LLM and build the graph.
-        
+
         Returns:
             True if initialization successful, False otherwise
         """
@@ -707,32 +707,32 @@ class RemediationAgent:
                 print(f"[Agent] Provider: {self.config.model_provider}")
                 print(f"[Agent] Temperature: {self.config.temperature}")
                 print(f"[Agent] Max attempts: {self.config.max_attempts}")
-            
+
             # Initialize LLM
             self.llm = get_llm(self.config)
-            
+
             # Build graph
             self.graph = build_agent_graph(self.config, self.llm, self.template_loader)
-            
+
             # Compile graph
             self.compiled_graph = self.graph.compile()
-            
+
             if self.config.verbose:
                 print("[Agent] Initialization complete")
-            
+
             return True
-            
+
         except Exception as e:
             print(f"[Agent] Initialization failed: {str(e)}")
             return False
-    
+
     def process_vulnerability(self, vulnerability: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a single vulnerability through the workflow.
-        
+
         Args:
             vulnerability: Dict with vulnerability details
-            
+
         Returns:
             Dict with fix results
         """
@@ -742,21 +742,21 @@ class RemediationAgent:
                     'status': AgentStatus.ERROR.value,
                     'error': 'Agent initialization failed'
                 }
-        
+
         # Create initial state
         initial_state = create_initial_state(vulnerability, self.config)
-        
+
         if self.config.verbose:
             print(f"\n[Agent] Processing: {vulnerability.get('vuln_type')} in {vulnerability.get('file_path')}")
-        
+
         try:
             # Run the graph
             final_state = self.compiled_graph.invoke(initial_state)
-            
+
             if self.config.verbose:
                 print(f"[Agent] Status: {final_state.get('status')}")
                 print(f"[Agent] Attempts: {final_state.get('attempts')}")
-            
+
             return {
                 'status': final_state.get('status'),
                 'fix': final_state.get('fix'),
@@ -767,27 +767,27 @@ class RemediationAgent:
                 'reasoning_chain': final_state.get('reasoning_chain'),
                 'error': final_state.get('error')
             }
-            
+
         except Exception as e:
             return {
                 'status': AgentStatus.ERROR.value,
                 'error': str(e),
                 'attempts': initial_state.get('attempts', 0)
             }
-    
+
     def process_with_feedback(self, vulnerability: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a vulnerability using the feedback loop for improved retries.
-        
+
         This method uses the FeedbackLoop class which:
         1. Tracks all fix attempts with their results
         2. Injects failure context into retry prompts
         3. Forces reflection on failed attempts ("What assumption was wrong?")
         4. Selects the best fix after max attempts
-        
+
         Args:
             vulnerability: Dict with vulnerability details
-            
+
         Returns:
             Dict with status (VERIFIED/UNVERIFIED), fix, and attempts history
         """
@@ -797,25 +797,25 @@ class RemediationAgent:
                     'status': FixStatus.ERROR.value,
                     'error': 'Agent initialization failed'
                 }
-        
+
         if self.config.verbose:
             print(f"\n[Agent] Processing with feedback loop: {vulnerability.get('vuln_type')}")
-        
+
         # Get fix template for this vulnerability type
         template = self.template_loader.get_template_for_vuln(vulnerability.get('vuln_type', ''))
         fix_template = ""
         if template:
             fix_template = f"{template.fix_strategy}\n\n{template.template}"
-        
+
         # Create feedback loop config
         fb_config = FeedbackLoopConfig(
             max_attempts=self.config.max_attempts,
             verbose=self.config.verbose
         )
-        
+
         # Create the feedback loop
         feedback_loop = FeedbackLoop(fb_config)
-        
+
         # Define the fix generation function using our LLM
         def generate_fix(prompt: str) -> str:
             messages = [
@@ -824,7 +824,7 @@ class RemediationAgent:
             ]
             response = self.llm.invoke(messages)
             return response.content
-        
+
         # Define the reflection generation function
         def generate_reflection(prompt: str) -> str:
             messages = [
@@ -833,7 +833,7 @@ class RemediationAgent:
             ]
             response = self.llm.invoke(messages)
             return response.content
-        
+
         # Run the feedback loop
         result = feedback_loop.run(
             vulnerability=vulnerability,
@@ -841,26 +841,26 @@ class RemediationAgent:
             fix_template=fix_template,
             generate_reflection_fn=generate_reflection
         )
-        
+
         # Convert to dict and add agent status
         result_dict = result.to_dict()
-        
+
         # Map feedback loop status to agent status
         if result.status == FixStatus.VERIFIED:
             result_dict['agent_status'] = AgentStatus.FIXED.value
         else:
             result_dict['agent_status'] = AgentStatus.ESCALATED.value
-        
+
         return result_dict
 
 
 def create_remediation_agent(config: Optional[AgentConfig] = None) -> RemediationAgent:
     """
     Create and return the remediation agent.
-    
+
     Args:
         config: Optional AgentConfig for customizing agent behavior
-        
+
     Returns:
         RemediationAgent instance
     """
@@ -871,11 +871,11 @@ def create_remediation_agent(config: Optional[AgentConfig] = None) -> Remediatio
 def run_agent(agent: RemediationAgent, vulnerability: Dict[str, Any]) -> Dict[str, Any]:
     """
     Run the agent on a single vulnerability.
-    
+
     Args:
         agent: The RemediationAgent instance
         vulnerability: Dict containing vulnerability details
-        
+
     Returns:
         Dict with fix results
     """
@@ -889,49 +889,49 @@ def run_agent(agent: RemediationAgent, vulnerability: Dict[str, Any]) -> Dict[st
 if __name__ == "__main__":
     import json
     from dotenv import load_dotenv
-    
+
     # Load environment variables from .env file
     load_dotenv()
-    
+
     print("=" * 70)
     print("SecureGuard AI - LangGraph Agent Test")
     print("=" * 70)
-    
+
     # Check for API keys
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
-    
+
     # Validate the keys
     anthropic_valid = is_valid_api_key(anthropic_key, "anthropic")
     openai_valid = is_valid_api_key(openai_key, "openai")
-    
+
     if not anthropic_valid and not openai_valid:
         print("\n⚠️  No API keys found!")
         print("Set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable.")
         print("\nRunning in dry-run mode (testing graph structure only)...")
-        
+
         # Test graph structure without LLM
         config = AgentConfig(verbose=True)
-        
+
         print("\n--- Testing Graph Structure ---")
         template_loader = TemplateLoader()
-        
+
         # Create a mock LLM for testing
         class MockLLM:
             def invoke(self, messages):
                 class MockResponse:
                     content = "def get_user(user_id):\n    query = 'SELECT * FROM users WHERE id = ?'\n    cursor.execute(query, (user_id,))\n    return cursor.fetchone()"
                 return MockResponse()
-        
+
         mock_llm = MockLLM()
         graph = build_agent_graph(config, mock_llm, template_loader)
         compiled = graph.compile()
-        
+
         print("✓ Graph compiled successfully")
         print(f"✓ Nodes: generate_fix, validate, review, escalate")
         print(f"✓ Entry point: generate_fix")
         print(f"✓ Conditional routing after validate")
-        
+
         # Test state creation
         test_vuln = {
             'vuln_type': 'sql_injection',
@@ -941,21 +941,21 @@ if __name__ == "__main__":
             'description': 'SQL injection detected',
             'code_snippet': 'query = f"SELECT * FROM users WHERE id = {user_id}"'
         }
-        
+
         initial_state = create_initial_state(test_vuln, config)
         print(f"\n✓ Initial state created:")
         print(f"  - vuln_type: {initial_state['vuln_type']}")
         print(f"  - attempts: {initial_state['attempts']}")
         print(f"  - max_attempts: {initial_state['max_attempts']}")
         print(f"  - status: {initial_state['status']}")
-        
+
     else:
         # Full test with real LLM
         provider = "anthropic" if anthropic_valid else "openai"
         model = "claude-sonnet-4-20250514" if anthropic_valid else "gpt-4o"
-        
+
         print(f"\n✓ Using {provider} with model: {model}")
-        
+
         config = AgentConfig(
             model_name=model,
             model_provider=provider,
@@ -963,9 +963,9 @@ if __name__ == "__main__":
             max_attempts=3,
             verbose=True
         )
-        
+
         agent = create_remediation_agent(config)
-        
+
         # Test vulnerability
         test_vuln = {
             'vuln_type': 'sql_injection',
@@ -988,10 +988,10 @@ def list_users():
     cursor.execute("SELECT * FROM users")
     return cursor.fetchall()'''
         }
-        
+
         print("\n--- Running Agent ---")
         result = run_agent(agent, test_vuln)
-        
+
         print("\n--- Result ---")
         print(json.dumps({
             'status': result.get('status'),
@@ -999,16 +999,16 @@ def list_users():
             'validation_status': result.get('validation_status'),
             'error': result.get('error')
         }, indent=2))
-        
+
         if result.get('fix'):
             print("\n--- Generated Fix ---")
             print(result['fix'])
-        
+
         if result.get('reasoning_chain'):
             print("\n--- Reasoning Chain ---")
             for step in result['reasoning_chain']:
                 print(f"  • {step}")
-    
+
     print("\n" + "=" * 70)
     print("Agent test completed!")
     print("=" * 70)

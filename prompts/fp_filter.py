@@ -58,11 +58,11 @@ Analyze and respond with:
 def get_fp_filter_prompt(vulnerability: Dict[str, Any], code_context: str) -> str:
     """
     Generate the false positive filter prompt for a vulnerability.
-    
+
     Args:
         vulnerability: Dict containing vulnerability details
         code_context: The code context around the vulnerable line
-        
+
     Returns:
         Formatted prompt string for FP evaluation
     """
@@ -79,10 +79,10 @@ def get_fp_filter_prompt(vulnerability: Dict[str, Any], code_context: str) -> st
 def parse_fp_response(response: str) -> Dict[str, Any]:
     """
     Parse the LLM response for false positive evaluation.
-    
+
     Args:
         response: Raw LLM response string
-        
+
     Returns:
         Dict with is_false_positive, confidence, reasoning, recommendation
     """
@@ -90,22 +90,22 @@ def parse_fp_response(response: str) -> Dict[str, Any]:
     # - Parse structured response
     # - Extract confidence score
     # - Extract reasoning
-    
+
     result = {
         'is_false_positive': False,
         'confidence': 0.5,
         'reasoning': 'Not implemented',
         'recommendation': 'REVIEW_MANUALLY'
     }
-    
+
     # Basic parsing logic (to be enhanced)
     response_lower = response.lower()
-    
+
     if 'is_false_positive: true' in response_lower:
         result['is_false_positive'] = True
     elif 'is_false_positive: false' in response_lower:
         result['is_false_positive'] = False
-    
+
     # Extract confidence if present
     import re
     confidence_match = re.search(r'confidence:\s*([\d.]+)', response_lower)
@@ -114,7 +114,7 @@ def parse_fp_response(response: str) -> Dict[str, Any]:
             result['confidence'] = float(confidence_match.group(1))
         except ValueError:
             pass
-    
+
     return result
 
 
@@ -125,12 +125,12 @@ def evaluate_false_positive(
 ) -> Dict[str, Any]:
     """
     Evaluate whether a vulnerability is a false positive.
-    
+
     Args:
         vulnerability: Dict containing vulnerability details
         code_context: The code context around the vulnerable line
         llm_client: Optional LLM client for evaluation
-        
+
     Returns:
         Dict with evaluation results
     """
@@ -138,17 +138,17 @@ def evaluate_false_positive(
     # - Call LLM with FP filter prompt
     # - Parse response
     # - Return structured result
-    
+
     print(f"[FP Filter] Evaluating: {vulnerability.get('vuln_type')} in {vulnerability.get('file_path')}")
-    
+
     # Quick heuristic checks (before LLM call)
     file_path = vulnerability.get('file_path', '')
-    
+
     # Check if test file
     is_test_file = any(pattern in file_path.lower() for pattern in [
         'test_', '_test.', 'tests/', '/test/', 'mock', 'fixture', 'conftest'
     ])
-    
+
     if is_test_file:
         return {
             'is_false_positive': True,
@@ -156,7 +156,7 @@ def evaluate_false_positive(
             'fp_reason': 'File appears to be a test file',
             'recommendation': 'SKIP'
         }
-    
+
     # Default: needs LLM evaluation
     return {
         'is_false_positive': False,
@@ -169,11 +169,11 @@ def evaluate_false_positive(
 def is_above_threshold(confidence: float, threshold: float = 0.75) -> bool:
     """
     Check if confidence is above the filter threshold.
-    
+
     Args:
         confidence: The confidence score (0.0 to 1.0)
         threshold: The minimum threshold (default 0.75)
-        
+
     Returns:
         True if confidence >= threshold
     """
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     # Test the FP filter module
     print("SecureGuard AI - False Positive Filter Module")
     print("=" * 40)
-    
+
     test_vuln = {
         'vuln_type': 'sql_injection',
         'file_path': 'app/database.py',
@@ -221,17 +221,17 @@ if __name__ == "__main__":
         'severity': 'HIGH',
         'description': 'Possible SQL injection'
     }
-    
+
     test_context = '''
 def get_user(user_id):
     query = f"SELECT * FROM users WHERE id = {user_id}"
     cursor.execute(query)
     return cursor.fetchone()
 '''
-    
+
     result = evaluate_false_positive(test_vuln, test_context)
     print(f"Evaluation result: {result}")
-    
+
     # Test with test file
     test_vuln_test = {
         'vuln_type': 'sql_injection',
@@ -240,6 +240,6 @@ def get_user(user_id):
         'severity': 'HIGH',
         'description': 'Possible SQL injection'
     }
-    
+
     result = evaluate_false_positive(test_vuln_test, test_context)
     print(f"Test file evaluation: {result}")

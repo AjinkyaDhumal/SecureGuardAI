@@ -12,7 +12,7 @@ Templates can be customized via config/vuln_config.yaml.
 
 Usage:
     from prompts.fix_templates import FixTemplateRegistry
-    
+
     registry = FixTemplateRegistry()
     template = registry.get_template('sql_injection')
     prompt = registry.build_prompt('sql_injection', code_context, vulnerability_info)
@@ -47,26 +47,26 @@ class FixTemplate:
     template: str
     cwe_ids: List[str] = field(default_factory=list)
     examples: Dict[str, str] = field(default_factory=dict)
-    
+
     def get_full_prompt(self, code_context: str = "", vuln_info: Dict[str, Any] = None) -> str:
         """
         Build the full prompt with code context and strict instructions.
-        
+
         Args:
             code_context: The code snippet to fix
             vuln_info: Additional vulnerability information
-            
+
         Returns:
             Complete prompt string for the LLM
         """
         vuln_info = vuln_info or {}
-        
+
         prompt_parts = [
             self.template.strip(),
             "",
             STRICT_CODE_INSTRUCTION.strip(),
         ]
-        
+
         if code_context:
             prompt_parts.extend([
                 "",
@@ -75,21 +75,21 @@ class FixTemplate:
                 code_context,
                 "```",
             ])
-        
+
         if vuln_info.get('description'):
             prompt_parts.extend([
                 "",
                 f"VULNERABILITY DETAILS: {vuln_info['description']}",
             ])
-        
+
         if vuln_info.get('line_number'):
             prompt_parts.append(f"VULNERABLE LINE: {vuln_info['line_number']}")
-        
+
         prompt_parts.extend([
             "",
             "Return ONLY the fixed code:",
         ])
-        
+
         return "\n".join(prompt_parts)
 
 
@@ -120,7 +120,7 @@ GOOD: cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "command_injection": {
         "category": "Injection",
         "severity": "CRITICAL",
@@ -147,7 +147,7 @@ GOOD: subprocess.run(["ls", user_dir], shell=False)
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "ldap_injection": {
         "category": "Injection",
         "severity": "HIGH",
@@ -172,7 +172,7 @@ GOOD: filter = f"(uid={ldap3.utils.conv.escape_filter_chars(username)})"
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "xpath_injection": {
         "category": "Injection",
         "severity": "HIGH",
@@ -197,7 +197,7 @@ GOOD: tree.xpath("//user[@name=$name]", name=username)
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     # ============ WEB CATEGORY ============
     "xss": {
         "category": "Web",
@@ -225,7 +225,7 @@ GOOD: return f"<div>{html.escape(user_input)}</div>"
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "csrf": {
         "category": "Web",
         "severity": "MEDIUM",
@@ -251,7 +251,7 @@ GOOD: from flask_wtf.csrf import CSRFProtect; csrf = CSRFProtect(app)
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "open_redirect": {
         "category": "Web",
         "severity": "MEDIUM",
@@ -272,7 +272,7 @@ FIX STRATEGY:
 
 EXAMPLE:
 BAD:  return redirect(request.args.get('next'))
-GOOD: 
+GOOD:
     next_url = request.args.get('next', '/')
     if not is_safe_url(next_url):
         next_url = '/'
@@ -281,7 +281,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "xxe": {
         "category": "Web",
         "severity": "HIGH",
@@ -302,7 +302,7 @@ FIX STRATEGY:
 
 EXAMPLE:
 BAD:  tree = etree.parse(xml_file)
-GOOD: 
+GOOD:
     from defusedxml import ElementTree
     tree = ElementTree.parse(xml_file)
     # OR
@@ -312,7 +312,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     # ============ FILE & DATA CATEGORY ============
     "path_traversal": {
         "category": "File & Data",
@@ -344,7 +344,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "insecure_deserialization": {
         "category": "File & Data",
         "severity": "CRITICAL",
@@ -374,7 +374,7 @@ GOOD: config = yaml.safe_load(file)
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "arbitrary_file_upload": {
         "category": "File & Data",
         "severity": "HIGH",
@@ -407,7 +407,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "log_injection": {
         "category": "File & Data",
         "severity": "MEDIUM",
@@ -428,14 +428,14 @@ FIX STRATEGY:
 
 EXAMPLE:
 BAD:  logger.info(f"User login: {username}")
-GOOD: 
+GOOD:
     safe_username = username.replace('\\n', '').replace('\\r', '')
     logger.info("User login: %s", safe_username)
 
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     # ============ AUTH & CRYPTO CATEGORY ============
     "hardcoded_secrets": {
         "category": "Auth & Crypto",
@@ -466,7 +466,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "weak_hashing": {
         "category": "Auth & Crypto",
         "severity": "HIGH",
@@ -496,7 +496,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "broken_jwt_auth": {
         "category": "Auth & Crypto",
         "severity": "CRITICAL",
@@ -529,7 +529,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "weak_randomness": {
         "category": "Auth & Crypto",
         "severity": "HIGH",
@@ -557,7 +557,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     # ============ CODE & CONFIG CATEGORY ============
     "insecure_eval": {
         "category": "Code & Config",
@@ -586,7 +586,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "debug_mode_prod": {
         "category": "Code & Config",
         "severity": "MEDIUM",
@@ -615,7 +615,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "permissive_cors": {
         "category": "Code & Config",
         "severity": "MEDIUM",
@@ -645,7 +645,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "missing_security_headers": {
         "category": "Code & Config",
         "severity": "MEDIUM",
@@ -683,7 +683,7 @@ GOOD (Manual):
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     # ============ RESOURCE & MEMORY CATEGORY ============
     "buffer_overflow": {
         "category": "Resource & Memory",
@@ -710,7 +710,7 @@ GOOD: strncpy(buffer, user_input, sizeof(buffer) - 1);
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "use_after_free": {
         "category": "Resource & Memory",
         "severity": "CRITICAL",
@@ -741,7 +741,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "integer_overflow": {
         "category": "Resource & Memory",
         "severity": "HIGH",
@@ -769,7 +769,7 @@ GOOD:
 Return ONLY the fixed code. No explanations.
 """
     },
-    
+
     "redos": {
         "category": "Resource & Memory",
         "severity": "MEDIUM",
@@ -805,29 +805,29 @@ Return ONLY the fixed code. No explanations.
 class FixTemplateRegistry:
     """
     Registry for vulnerability fix templates.
-    
+
     Loads templates from built-in definitions and optional YAML config.
     Provides methods to fetch templates and build prompts for the agent.
     """
-    
+
     def __init__(self, config_path: Optional[str] = None):
         """
         Initialize the template registry.
-        
+
         Args:
             config_path: Optional path to vuln_config.yaml for customization
         """
         self.templates: Dict[str, FixTemplate] = {}
         self.config: Dict[str, Any] = {}
         self.enabled_types: List[str] = []
-        
+
         # Load built-in templates
         self._load_builtin_templates()
-        
+
         # Load config if provided
         if config_path:
             self.load_config(config_path)
-    
+
     def _load_builtin_templates(self) -> None:
         """Load all built-in vulnerability templates."""
         for vuln_type, data in VULNERABILITY_TEMPLATES.items():
@@ -841,40 +841,40 @@ class FixTemplateRegistry:
                 cwe_ids=data.get('cwe_ids', []),
                 examples=data.get('examples', {})
             )
-        
+
         # By default, all templates are enabled
         self.enabled_types = list(self.templates.keys())
-    
+
     def load_config(self, config_path: str) -> None:
         """
         Load configuration from YAML file.
-        
+
         Args:
             config_path: Path to vuln_config.yaml
         """
         path = Path(config_path)
         if not path.exists():
             return
-        
+
         try:
             with open(path, 'r') as f:
                 self.config = yaml.safe_load(f) or {}
-            
+
             # Update enabled types from config
             if 'vulnerabilities' in self.config:
                 self.enabled_types = self.config['vulnerabilities']
-            
+
             # Load custom templates if specified
             if 'custom_types' in self.config and self.config['custom_types']:
                 self._load_custom_templates(self.config['custom_types'])
-            
+
             # Apply severity overrides
             if 'severity_override' in self.config and self.config['severity_override']:
                 self._apply_severity_overrides(self.config['severity_override'])
-                
+
         except Exception as e:
             print(f"[FixTemplateRegistry] Error loading config: {e}")
-    
+
     def _load_custom_templates(self, custom_types: Dict[str, Any]) -> None:
         """Load custom vulnerability types from config."""
         for vuln_type, data in custom_types.items():
@@ -888,37 +888,37 @@ class FixTemplateRegistry:
                     template=data.get('template', ''),
                     cwe_ids=data.get('cwe_ids', []),
                 )
-    
+
     def _apply_severity_overrides(self, overrides: Dict[str, str]) -> None:
         """Apply severity overrides from config."""
         for vuln_type, severity in overrides.items():
             if vuln_type in self.templates:
                 self.templates[vuln_type].severity = severity
-    
+
     def get_template(self, vuln_type: str) -> Optional[FixTemplate]:
         """
         Get the fix template for a vulnerability type.
-        
+
         Args:
             vuln_type: The vulnerability type identifier
-            
+
         Returns:
             FixTemplate object or None if not found
         """
         return self.templates.get(vuln_type.lower())
-    
+
     def get_template_dict(self, vuln_type: str) -> Optional[Dict[str, Any]]:
         """
         Get template as dictionary (for backward compatibility).
-        
+
         Args:
             vuln_type: The vulnerability type identifier
-            
+
         Returns:
             Dict with template details or None if not found
         """
         return VULNERABILITY_TEMPLATES.get(vuln_type.lower())
-    
+
     def build_prompt(
         self,
         vuln_type: str,
@@ -927,23 +927,23 @@ class FixTemplateRegistry:
     ) -> str:
         """
         Build a complete prompt for the LLM agent.
-        
+
         Args:
             vuln_type: The vulnerability type
             code_context: Code snippet to fix
             vuln_info: Additional vulnerability information
-            
+
         Returns:
             Complete prompt string
         """
         template = self.get_template(vuln_type)
-        
+
         if template:
             return template.get_full_prompt(code_context, vuln_info)
-        
+
         # Fallback generic prompt
         return self._build_generic_prompt(code_context, vuln_info)
-    
+
     def _build_generic_prompt(
         self,
         code_context: str = "",
@@ -951,7 +951,7 @@ class FixTemplateRegistry:
     ) -> str:
         """Build a generic fix prompt for unknown vulnerability types."""
         vuln_info = vuln_info or {}
-        
+
         prompt_parts = [
             "You are fixing a security vulnerability.",
             "",
@@ -960,7 +960,7 @@ class FixTemplateRegistry:
             "",
             STRICT_CODE_INSTRUCTION.strip(),
         ]
-        
+
         if code_context:
             prompt_parts.extend([
                 "",
@@ -969,29 +969,29 @@ class FixTemplateRegistry:
                 code_context,
                 "```",
             ])
-        
+
         if vuln_info.get('description'):
             prompt_parts.append(f"\nVULNERABILITY: {vuln_info['description']}")
-        
+
         prompt_parts.extend([
             "",
             "Return ONLY the fixed code:",
         ])
-        
+
         return "\n".join(prompt_parts)
-    
+
     def is_enabled(self, vuln_type: str) -> bool:
         """Check if a vulnerability type is enabled."""
         return vuln_type.lower() in [t.lower() for t in self.enabled_types]
-    
+
     def list_enabled_types(self) -> List[str]:
         """Get list of enabled vulnerability types."""
         return self.enabled_types.copy()
-    
+
     def list_all_types(self) -> List[str]:
         """Get list of all available vulnerability types."""
         return list(self.templates.keys())
-    
+
     def get_types_by_category(self, category: str) -> List[str]:
         """Get vulnerability types in a specific category."""
         return [
@@ -999,11 +999,11 @@ class FixTemplateRegistry:
             for vuln_type, template in self.templates.items()
             if template.category.lower() == category.lower()
         ]
-    
+
     def get_categories(self) -> List[str]:
         """Get list of all categories."""
         return list(set(t.category for t in self.templates.values()))
-    
+
     def get_fix_strategy(self, vuln_type: str) -> str:
         """Get the fix strategy for a vulnerability type."""
         template = self.get_template(vuln_type)
@@ -1014,10 +1014,10 @@ class FixTemplateRegistry:
 def get_fix_template(vuln_type: str) -> Optional[Dict[str, Any]]:
     """
     Get the fix template for a specific vulnerability type.
-    
+
     Args:
         vuln_type: The vulnerability type identifier
-        
+
     Returns:
         Dict with template details or None if not found
     """
@@ -1027,17 +1027,17 @@ def get_fix_template(vuln_type: str) -> Optional[Dict[str, Any]]:
 def get_template_prompt(vuln_type: str) -> str:
     """
     Get just the prompt template string for a vulnerability type.
-    
+
     Args:
         vuln_type: The vulnerability type identifier
-        
+
     Returns:
         The template prompt string or a generic prompt if not found
     """
     template = get_fix_template(vuln_type)
     if template:
         return template['template']
-    
+
     return """
 You are fixing a security vulnerability.
 
@@ -1051,7 +1051,7 @@ Return ONLY the fixed code. No explanations.
 def list_vulnerability_types() -> List[str]:
     """
     Get a list of all supported vulnerability types.
-    
+
     Returns:
         List of vulnerability type identifiers
     """
@@ -1061,10 +1061,10 @@ def list_vulnerability_types() -> List[str]:
 def get_vulnerabilities_by_category(category: str) -> List[str]:
     """
     Get all vulnerability types in a specific category.
-    
+
     Args:
         category: The category name (e.g., 'Injection', 'Web')
-        
+
     Returns:
         List of vulnerability type identifiers in that category
     """
@@ -1077,16 +1077,16 @@ def get_vulnerabilities_by_category(category: str) -> List[str]:
 
 if __name__ == "__main__":
     import json
-    
+
     print("=" * 60)
     print("SecureGuard AI - Fix Templates Module Test")
     print("=" * 60)
-    
+
     # Test the registry
     registry = FixTemplateRegistry()
-    
+
     print(f"\nTotal vulnerability types: {len(registry.list_all_types())}")
-    
+
     print("\nVulnerability types by category:")
     for category in sorted(registry.get_categories()):
         vulns = registry.get_types_by_category(category)
@@ -1094,14 +1094,14 @@ if __name__ == "__main__":
         for v in vulns:
             template = registry.get_template(v)
             print(f"    - {v} ({template.severity})")
-    
+
     # Test the 5 core templates
     print("\n" + "=" * 60)
     print("Testing 5 Core Templates")
     print("=" * 60)
-    
+
     core_types = ['sql_injection', 'xss', 'command_injection', 'path_traversal', 'hardcoded_secrets']
-    
+
     for vuln_type in core_types:
         template = registry.get_template(vuln_type)
         print(f"\n--- {vuln_type.upper()} ---")
@@ -1109,26 +1109,26 @@ if __name__ == "__main__":
         print(f"Severity: {template.severity}")
         print(f"OWASP: {template.owasp}")
         print(f"Fix Strategy: {template.fix_strategy}")
-    
+
     # Test prompt building
     print("\n" + "=" * 60)
     print("Sample Prompt (SQL Injection)")
     print("=" * 60)
-    
+
     sample_code = '''def get_user(user_id):
     query = f"SELECT * FROM users WHERE id = {user_id}"
     cursor.execute(query)
     return cursor.fetchone()'''
-    
+
     vuln_info = {
         'description': 'SQL injection via f-string in query',
         'line_number': 2,
         'file_path': 'app/database.py'
     }
-    
+
     prompt = registry.build_prompt('sql_injection', sample_code, vuln_info)
     print(prompt)
-    
+
     print("\n" + "=" * 60)
     print("Fix Templates test completed!")
     print("=" * 60)

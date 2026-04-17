@@ -98,7 +98,7 @@ OWASP_REFERENCES = {
 class ReportGenerator:
     """
     Generates Markdown reports for vulnerability fixes.
-    
+
     Creates detailed reports with:
     - Vulnerability explanation
     - Fix reasoning (why the fix works)
@@ -106,11 +106,11 @@ class ReportGenerator:
     - Before/after code comparison
     - OWASP references
     """
-    
+
     def __init__(self, output_dir: str = "output", config: Optional[ReportConfig] = None, verbose: bool = True):
         """
         Initialize the report generator.
-        
+
         Args:
             output_dir: Directory to write report files
             config: Optional ReportConfig for customization
@@ -120,32 +120,32 @@ class ReportGenerator:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.config = config or ReportConfig()
         self.verbose = verbose
-    
+
     def generate(self, vulnerability: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate a Markdown report for a vulnerability fix.
-        
+
         Args:
             vulnerability: Vulnerability dict with all pipeline data
-            
+
         Returns:
             Vulnerability dict with report info added
         """
         result = vulnerability.copy()
-        
+
         vuln_type = vulnerability.get('vuln_type', 'unknown')
         file_path = vulnerability.get('file_path', 'unknown')
-        
+
         if self.verbose:
             print(f"[Reporter] Generating report for: {vuln_type} in {file_path}")
-        
+
         # Generate report content
         report_content = self._build_report(vulnerability)
-        
+
         # Generate report filename
         report_filename = self._generate_report_filename(vulnerability)
         report_path = self.output_dir / report_filename
-        
+
         # Write report file
         try:
             report_path.write_text(report_content, encoding='utf-8')
@@ -160,22 +160,22 @@ class ReportGenerator:
                 'report_error': str(e)
             })
             return result
-        
+
         result.update({
             'report_file_path': str(report_path),
             'report_filename': report_filename,
             'summary': self._generate_summary(vulnerability)
         })
-        
+
         return result
-    
+
     def _build_report(self, vulnerability: Dict[str, Any]) -> str:
         """
         Build the full Markdown report content.
-        
+
         Args:
             vulnerability: Vulnerability dict
-            
+
         Returns:
             Markdown report string
         """
@@ -185,37 +185,37 @@ class ReportGenerator:
         severity = vulnerability.get('severity', 'UNKNOWN')
         description = vulnerability.get('description', 'No description')
         status = vulnerability.get('status', 'UNKNOWN')
-        
+
         # Get fix and original code
         original_code = vulnerability.get('code_snippet', '') or vulnerability.get('code', 'Code not available')
         fixed_code = vulnerability.get('proposed_fix', '') or vulnerability.get('fix', 'Fix not available')
-        
+
         # Get test results
         tests_passed = vulnerability.get('tests_passed', 0)
         tests_failed = vulnerability.get('tests_failed', 0)
         tests_total = vulnerability.get('tests_total', tests_passed + tests_failed)
         test_output = vulnerability.get('test_output', 'No test output available')
-        
+
         # Truncate test output if needed
         if len(test_output) > 2000:
             test_output = test_output[:2000] + "\n... (truncated)"
-        
+
         # Get reasoning chain if available
         reasoning_chain = vulnerability.get('reasoning_chain', [])
-        
+
         # Get OWASP reference
         owasp = OWASP_REFERENCES.get(vuln_type, {
             'id': 'N/A',
             'name': 'Not classified',
             'url': 'https://owasp.org/Top10/'
         })
-        
+
         # Build status badge
         status_emoji = "✅" if status in ['VERIFIED', 'FIXED'] else "⚠️" if status == 'SYNTAX_ONLY' else "❌"
-        
+
         report = f"""# Security Vulnerability Fix Report
 
-**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
+**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 **Status:** {status_emoji} {status}
 
 ---
@@ -239,7 +239,7 @@ class ReportGenerator:
 {description}
 
 """
-        
+
         # Add OWASP reference if enabled
         if self.config.include_owasp:
             report += f"""### OWASP Reference
@@ -248,7 +248,7 @@ class ReportGenerator:
 - **More Info:** [{owasp['url']}]({owasp['url']})
 
 """
-        
+
         report += f"""---
 
 ## 💻 Code Analysis
@@ -272,7 +272,7 @@ class ReportGenerator:
 {self._get_fix_explanation(vulnerability)}
 
 """
-        
+
         # Add reasoning chain if available
         if reasoning_chain:
             report += """### Agent Reasoning Chain
@@ -281,7 +281,7 @@ class ReportGenerator:
             for i, step in enumerate(reasoning_chain, 1):
                 report += f"{i}. {step}\n"
             report += "\n"
-        
+
         report += f"""---
 
 ## ✅ Validation Results
@@ -294,7 +294,7 @@ class ReportGenerator:
 | **Validation Status** | {status} |
 
 """
-        
+
         # Add test output if enabled
         if self.config.include_test_output and test_output:
             report += f"""### Test Output
@@ -304,7 +304,7 @@ class ReportGenerator:
 ```
 
 """
-        
+
         # Add diff if enabled
         if self.config.include_diff:
             diff_text = vulnerability.get('diff_text', '')
@@ -324,7 +324,7 @@ class ReportGenerator:
 ```
 
 """
-        
+
         # Add recommendations if enabled
         if self.config.include_recommendations:
             report += f"""---
@@ -334,7 +334,7 @@ class ReportGenerator:
 {self._get_recommendations(vulnerability)}
 
 """
-        
+
         # Add how to apply section
         patch_filename = vulnerability.get('patch_filename', 'fix.patch')
         report += f"""---
@@ -361,19 +361,19 @@ git commit -m "fix({vuln_type}): remediate vulnerability in {Path(file_path).nam
 *Report generated by SecureGuard AI*
 """
         return report
-    
+
     def _get_fix_explanation(self, vulnerability: Dict[str, Any]) -> str:
         """
         Get or generate fix explanation.
-        
+
         Args:
             vulnerability: Vulnerability dict
-            
+
         Returns:
             Explanation string
         """
         vuln_type = vulnerability.get('vuln_type', '')
-        
+
         explanations = {
             'sql_injection': """
 The fix replaces string concatenation/formatting in SQL queries with parameterized queries.
@@ -412,24 +412,24 @@ This prevents secrets from being exposed in version control.
 - Follows the 12-factor app methodology
 """,
         }
-        
+
         return explanations.get(vuln_type, """
 The fix addresses the identified vulnerability by applying security best practices.
 Please review the code changes to understand the specific remediation applied.
 """)
-    
+
     def _get_recommendations(self, vulnerability: Dict[str, Any]) -> str:
         """
         Get recommendations based on vulnerability type.
-        
+
         Args:
             vulnerability: Vulnerability dict
-            
+
         Returns:
             Recommendations string
         """
         vuln_type = vulnerability.get('vuln_type', '')
-        
+
         recommendations = {
             'sql_injection': """
 1. **Use an ORM** - Consider using SQLAlchemy or Django ORM for safer database operations
@@ -450,56 +450,56 @@ Please review the code changes to understand the specific remediation applied.
 4. **.env files** - Use python-dotenv and add .env to .gitignore
 """,
         }
-        
+
         return recommendations.get(vuln_type, """
 1. **Review similar code** - Search for similar patterns that may need fixing
 2. **Add tests** - Write tests to prevent regression
 3. **Security training** - Consider security awareness training for the team
 4. **Regular scanning** - Implement automated security scanning in CI/CD
 """)
-    
+
     def _generate_summary(self, vulnerability: Dict[str, Any]) -> str:
         """
         Generate a brief summary of the fix.
-        
+
         Args:
             vulnerability: Vulnerability dict
-            
+
         Returns:
             Summary string
         """
         vuln_type = vulnerability.get('vuln_type', 'unknown')
         file_path = vulnerability.get('file_path', 'unknown')
         status = vulnerability.get('status', 'UNKNOWN')
-        
+
         return f"Fixed {vuln_type.replace('_', ' ')} in {file_path} - Status: {status}"
-    
+
     def _generate_report_filename(self, vulnerability: Dict[str, Any]) -> str:
         """
         Generate a unique report filename.
-        
+
         Args:
             vulnerability: Vulnerability dict
-            
+
         Returns:
             Report filename string
         """
         vuln_type = vulnerability.get('vuln_type', 'fix')
         file_path = vulnerability.get('file_path', 'unknown')
         line_number = vulnerability.get('line_number', 0)
-        
+
         clean_path = Path(file_path).stem
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        
+
         return f"report_{vuln_type}_{clean_path}_L{line_number}_{timestamp}.md"
-    
+
     def generate_summary_report(self, vulnerabilities: List[Dict[str, Any]]) -> str:
         """
         Generate a summary report for all vulnerabilities.
-        
+
         Args:
             vulnerabilities: List of vulnerability dicts
-            
+
         Returns:
             Path to summary report
         """
@@ -507,7 +507,7 @@ Please review the code changes to understand the specific remediation applied.
         verified = sum(1 for v in vulnerabilities if v.get('status') == 'VERIFIED')
         unverified = sum(1 for v in vulnerabilities if v.get('status') == 'UNVERIFIED')
         skipped = sum(1 for v in vulnerabilities if v.get('is_false_positive'))
-        
+
         report = f"""# SecureGuard AI - Summary Report
 
 **Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -530,19 +530,19 @@ Please review the code changes to understand the specific remediation applied.
 | # | Type | File | Line | Severity | Status |
 |---|------|------|------|----------|--------|
 """
-        
+
         for i, v in enumerate(vulnerabilities, 1):
             report += f"| {i} | {v.get('vuln_type', 'unknown')} | `{v.get('file_path', '')}` | {v.get('line_number', 0)} | {v.get('severity', '')} | {v.get('status', '')} |\n"
-        
+
         report += """
 ---
 
 *Report generated by SecureGuard AI*
 """
-        
+
         summary_path = self.output_dir / f"summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
         summary_path.write_text(report)
-        
+
         print(f"[Reporter] Wrote summary report: {summary_path}")
         return str(summary_path)
 
@@ -555,13 +555,13 @@ def generate_report(
 ) -> Dict[str, Any]:
     """
     Convenience function to generate a report.
-    
+
     Args:
         vulnerability: Vulnerability dict
         output_dir: Directory for report output
         config: Optional ReportConfig for customization
         verbose: Whether to print status messages
-        
+
     Returns:
         Vulnerability dict with report info
     """
@@ -573,7 +573,7 @@ if __name__ == "__main__":
     # Test the reporter module
     print("SecureGuard AI - Reporter Module")
     print("=" * 40)
-    
+
     test_vuln = {
         'vuln_type': 'sql_injection',
         'file_path': 'app/database.py',
@@ -590,9 +590,9 @@ if __name__ == "__main__":
         'patch_file_path': 'output/sql_injection_database_L10.patch',
         'patch_filename': 'sql_injection_database_L10.patch'
     }
-    
+
     generator = ReportGenerator()
     result = generator.generate(test_vuln)
-    
+
     print(f"\nReport generated: {result.get('report_file_path')}")
     print(f"Summary: {result.get('summary')}")

@@ -63,7 +63,7 @@ class ReviewResult:
     timestamp: datetime = field(default_factory=datetime.now)
     notes: str = ""
     reviewer: str = "human"
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -78,17 +78,17 @@ class ReviewResult:
 class FixReviewer:
     """
     Handles human-in-the-loop review for fixes.
-    
+
     Shows:
     - Diff
     - Summary
     - Test results
-    
+
     Asks: Apply fix? (y/n)
-    
+
     Returns decision: approved / rejected
     """
-    
+
     def __init__(
         self,
         mode: ReviewMode = ReviewMode.INTERACTIVE,
@@ -96,7 +96,7 @@ class FixReviewer:
     ):
         """
         Initialize the reviewer.
-        
+
         Args:
             mode: Review mode (interactive or automatic)
             config: Optional ReviewConfig for customization
@@ -104,7 +104,7 @@ class FixReviewer:
         self.mode = mode
         self.config = config or ReviewConfig(mode=mode)
         self.review_history: List[ReviewResult] = []
-        
+
         # ANSI color codes
         if self.config.color_output:
             self.colors = {
@@ -119,32 +119,32 @@ class FixReviewer:
             }
         else:
             self.colors = {k: '' for k in ['reset', 'bold', 'red', 'green', 'yellow', 'blue', 'cyan', 'gray']}
-    
+
     def review(self, vulnerability: Dict[str, Any]) -> Dict[str, Any]:
         """
         Review a proposed fix.
-        
+
         Shows:
         - Diff
         - Summary
         - Test results
-        
+
         Asks: Apply fix? (y/n)
-        
+
         Returns decision: approved / rejected
-        
+
         Args:
             vulnerability: Vulnerability dict with fix and validation data
-            
+
         Returns:
             Vulnerability dict with review decision added
         """
         result = vulnerability.copy()
-        
+
         vuln_type = vulnerability.get('vuln_type', 'unknown')
         file_path = vulnerability.get('file_path', 'unknown')
         status = vulnerability.get('status', 'UNKNOWN')
-        
+
         if self.mode == ReviewMode.AUTOMATIC:
             # Auto-approve in automatic mode
             decision = ReviewDecision.APPROVED
@@ -159,7 +159,7 @@ class FixReviewer:
             else:
                 # Interactive review
                 decision, notes = self._interactive_review(vulnerability)
-        
+
         # Create review result
         review_result = ReviewResult(
             decision=decision,
@@ -168,36 +168,36 @@ class FixReviewer:
             notes=notes,
             reviewer="automatic" if self.mode == ReviewMode.AUTOMATIC else "human"
         )
-        
+
         result.update(review_result.to_dict())
         self.review_history.append(review_result)
-        
+
         return result
-    
+
     def _interactive_review(self, vulnerability: Dict[str, Any]) -> tuple:
         """
         Perform interactive review with user input.
-        
+
         Shows:
         1. Summary
         2. Diff
         3. Test results
-        
+
         Asks: Apply fix? (y/n)
-        
+
         Args:
             vulnerability: Vulnerability dict
-            
+
         Returns:
             Tuple of (ReviewDecision, notes)
         """
         c = self.colors
-        
+
         # Display review information
         self._display_summary(vulnerability)
         self._display_diff(vulnerability)
         self._display_test_results(vulnerability)
-        
+
         # Prompt for decision
         print(f"\n{c['bold']}{'=' * 60}{c['reset']}")
         print(f"{c['bold']}REVIEW DECISION{c['reset']}")
@@ -207,14 +207,14 @@ class FixReviewer:
         print(f"  {c['red']}[n]{c['reset']} Reject  - Do not apply this fix")
         print(f"  {c['yellow']}[s]{c['reset']} Skip    - Skip for now, review later")
         print(f"  {c['blue']}[d]{c['reset']} Details - Show more details")
-        
+
         while True:
             try:
                 choice = input(f"\n{c['bold']}Apply fix? (y/n): {c['reset']}").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 print(f"\n{c['yellow']}[Reviewer] Non-interactive environment, auto-approving{c['reset']}")
                 return ReviewDecision.APPROVED, "Auto-approved (non-interactive)"
-            
+
             if choice in ['y', 'yes']:
                 print(f"\n{c['green']}[Reviewer] ✓ Fix APPROVED{c['reset']}")
                 return ReviewDecision.APPROVED, "Approved by reviewer"
@@ -229,7 +229,7 @@ class FixReviewer:
                 self._display_details(vulnerability)
             else:
                 print(f"{c['yellow']}Invalid choice. Please enter y or n.{c['reset']}")
-    
+
     def _get_rejection_reason(self) -> str:
         """Get optional rejection reason from user."""
         try:
@@ -237,57 +237,57 @@ class FixReviewer:
             return reason
         except (EOFError, KeyboardInterrupt):
             return ""
-    
+
     def _display_summary(self, vulnerability: Dict[str, Any]) -> None:
         """Display vulnerability summary."""
         c = self.colors
-        
+
         print(f"\n{c['bold']}{'=' * 60}{c['reset']}")
         print(f"{c['bold']}📋 VULNERABILITY SUMMARY{c['reset']}")
         print(f"{'=' * 60}")
-        
+
         vuln_type = vulnerability.get('vuln_type', 'unknown')
         file_path = vulnerability.get('file_path', 'unknown')
         line_number = vulnerability.get('line_number', 0)
         severity = vulnerability.get('severity', 'UNKNOWN')
         status = vulnerability.get('status', 'UNKNOWN')
-        
+
         # Color-code severity
         severity_color = {
             'CRITICAL': c['red'], 'HIGH': c['red'],
             'MEDIUM': c['yellow'], 'LOW': c['green']
         }.get(severity.upper(), c['gray'])
-        
+
         # Color-code status
         status_color = c['green'] if status in ['VERIFIED', 'FIXED'] else c['yellow'] if status == 'SYNTAX_ONLY' else c['red']
-        
+
         print(f"\n  {c['bold']}Type:{c['reset']}     {vuln_type.replace('_', ' ').title()}")
         print(f"  {c['bold']}File:{c['reset']}     {file_path}")
         print(f"  {c['bold']}Line:{c['reset']}     {line_number}")
         print(f"  {c['bold']}Severity:{c['reset']} {severity_color}{severity}{c['reset']}")
         print(f"  {c['bold']}Status:{c['reset']}   {status_color}{status}{c['reset']}")
-        
+
         description = vulnerability.get('description', '')
         if description:
             print(f"\n  {c['bold']}Description:{c['reset']}")
             print(f"    {description[:100]}{'...' if len(description) > 100 else ''}")
-    
+
     def _display_diff(self, vulnerability: Dict[str, Any]) -> None:
         """Display the diff with syntax highlighting."""
         c = self.colors
-        
+
         print(f"\n{c['bold']}{'=' * 60}{c['reset']}")
         print(f"{c['bold']}📝 DIFF{c['reset']}")
         print(f"{'=' * 60}")
-        
+
         diff_text = vulnerability.get('diff_text', '')
         if not diff_text:
             print(f"\n  {c['gray']}No diff available{c['reset']}")
             return
-        
+
         diff_lines = diff_text.split('\n')
         max_lines = self.config.max_diff_lines if not self.config.show_full_diff else len(diff_lines)
-        
+
         print()
         for line in diff_lines[:max_lines]:
             if line.startswith('+++') or line.startswith('---'):
@@ -302,51 +302,51 @@ class FixReviewer:
                 print(f"  {c['bold']}{line}{c['reset']}")
             else:
                 print(f"  {line}")
-        
+
         if len(diff_lines) > max_lines:
             remaining = len(diff_lines) - max_lines
             print(f"\n  {c['gray']}... ({remaining} more lines, press 'd' for full diff){c['reset']}")
-    
+
     def _display_test_results(self, vulnerability: Dict[str, Any]) -> None:
         """Display test results."""
         c = self.colors
-        
+
         print(f"\n{c['bold']}{'=' * 60}{c['reset']}")
         print(f"{c['bold']}🧪 TEST RESULTS{c['reset']}")
         print(f"{'=' * 60}")
-        
+
         tests_passed = vulnerability.get('tests_passed', 0)
         tests_failed = vulnerability.get('tests_failed', 0)
         tests_total = vulnerability.get('tests_total', tests_passed + tests_failed)
         status = vulnerability.get('status', 'UNKNOWN')
-        
+
         if status == 'VERIFIED':
             status_icon = f"{c['green']}✓{c['reset']}"
         elif status == 'SYNTAX_ONLY':
             status_icon = f"{c['yellow']}⚠{c['reset']}"
         else:
             status_icon = f"{c['red']}✗{c['reset']}"
-        
+
         print(f"\n  {c['bold']}Status:{c['reset']}  {status_icon} {status}")
         print(f"  {c['bold']}Passed:{c['reset']}  {c['green']}{tests_passed}{c['reset']}")
         print(f"  {c['bold']}Failed:{c['reset']}  {c['red']}{tests_failed}{c['reset']}")
         print(f"  {c['bold']}Total:{c['reset']}   {tests_total}")
-        
+
         if tests_failed > 0:
             test_output = vulnerability.get('test_output', '')
             if test_output:
                 print(f"\n  {c['bold']}Test Output (excerpt):{c['reset']}")
                 for line in test_output.split('\n')[:5]:
                     print(f"    {c['gray']}{line[:70]}{c['reset']}")
-    
+
     def _display_details(self, vulnerability: Dict[str, Any]) -> None:
         """Display detailed information about the fix."""
         c = self.colors
-        
+
         print(f"\n{c['bold']}{'-' * 60}{c['reset']}")
         print(f"{c['bold']}DETAILED INFORMATION{c['reset']}")
         print(f"{'-' * 60}")
-        
+
         # Full diff
         print(f"\n{c['bold']}📄 FULL DIFF:{c['reset']}")
         diff_text = vulnerability.get('diff_text', 'No diff available')
@@ -359,12 +359,12 @@ class FixReviewer:
                 print(f"  {c['cyan']}{line}{c['reset']}")
             else:
                 print(f"  {line}")
-        
+
         # Test output
         print(f"\n{c['bold']}🧪 TEST OUTPUT:{c['reset']}")
         test_output = vulnerability.get('test_output', 'No test output available')
         print(f"  {c['gray']}{test_output[:1000]}{c['reset']}")
-        
+
         # Fix reasoning
         print(f"\n{c['bold']}💡 FIX REASONING:{c['reset']}")
         reasoning = vulnerability.get('reasoning_chain', [])
@@ -373,15 +373,15 @@ class FixReviewer:
                 print(f"  {i}. {step}")
         else:
             print(f"  {c['gray']}No reasoning chain available{c['reset']}")
-        
+
         print(f"\n{'-' * 60}")
-    
+
     def get_summary(self) -> Dict[str, Any]:
         """Get review summary."""
         approved = sum(1 for r in self.review_history if r.decision == ReviewDecision.APPROVED)
         rejected = sum(1 for r in self.review_history if r.decision == ReviewDecision.REJECTED)
         skipped = sum(1 for r in self.review_history if r.decision == ReviewDecision.SKIPPED)
-        
+
         return {
             'total_reviewed': len(self.review_history),
             'approved': approved,
@@ -398,22 +398,22 @@ class FixReviewer:
                 for r in self.review_history
             ]
         }
-    
+
     def print_summary(self) -> None:
         """Print a formatted summary of all reviews."""
         c = self.colors
         summary = self.get_summary()
-        
+
         print(f"\n{c['bold']}{'=' * 60}{c['reset']}")
         print(f"{c['bold']}📊 REVIEW SUMMARY{c['reset']}")
         print(f"{'=' * 60}")
-        
+
         print(f"\n  {c['bold']}Mode:{c['reset']}     {summary['mode']}")
         print(f"  {c['bold']}Total:{c['reset']}    {summary['total_reviewed']}")
         print(f"  {c['green']}Approved:{c['reset']} {summary['approved']}")
         print(f"  {c['red']}Rejected:{c['reset']} {summary['rejected']}")
         print(f"  {c['yellow']}Skipped:{c['reset']}  {summary['skipped']}")
-        
+
         if summary['history']:
             print(f"\n  {c['bold']}Details:{c['reset']}")
             for item in summary['history']:
@@ -427,11 +427,11 @@ def review_fix(
 ) -> Dict[str, Any]:
     """
     Convenience function to review a fix.
-    
+
     Args:
         vulnerability: Vulnerability dict
         mode: Review mode ('interactive' or 'automatic')
-        
+
     Returns:
         Vulnerability dict with review decision (approved/rejected)
     """
@@ -446,22 +446,22 @@ def review_fixes_batch(
 ) -> List[Dict[str, Any]]:
     """
     Review multiple fixes in batch.
-    
+
     Args:
         vulnerabilities: List of vulnerability dicts
         mode: Review mode ('interactive' or 'automatic')
-        
+
     Returns:
         List of vulnerability dicts with review decisions
     """
     review_mode = ReviewMode.AUTOMATIC if mode == "automatic" else ReviewMode.INTERACTIVE
     reviewer = FixReviewer(review_mode)
-    
+
     results = []
     for vuln in vulnerabilities:
         result = reviewer.review(vuln)
         results.append(result)
-    
+
     reviewer.print_summary()
     return results
 
@@ -474,7 +474,7 @@ if __name__ == "__main__":
     print("=" * 70)
     print("SecureGuard AI - Reviewer Module Test")
     print("=" * 70)
-    
+
     test_vuln = {
         'vuln_type': 'sql_injection',
         'file_path': 'app/database.py',
@@ -492,12 +492,12 @@ index abc1234..def5678 100644
 @@ -5,8 +5,8 @@ def get_user(user_id):
      conn = sqlite3.connect('users.db')
      cursor = conn.cursor()
-     
+
 -    query = f"SELECT * FROM users WHERE id = {user_id}"
 -    cursor.execute(query)
 +    query = "SELECT * FROM users WHERE id = ?"
 +    cursor.execute(query, (user_id,))
-     
+
      return cursor.fetchone()''',
         'code_snippet': 'query = f"SELECT * FROM users WHERE id = {user_id}"',
         'proposed_fix': 'query = "SELECT * FROM users WHERE id = ?"\ncursor.execute(query, (user_id,))',
@@ -508,23 +508,23 @@ index abc1234..def5678 100644
             'Verified fix passes all existing tests'
         ]
     }
-    
+
     # Test 1: Automatic mode
     print("\n" + "=" * 70)
     print("TEST 1: Automatic Mode")
     print("=" * 70)
-    
+
     reviewer = FixReviewer(ReviewMode.AUTOMATIC)
     result = reviewer.review(test_vuln)
     print(f"\nDecision: {result.get('review_decision')}")
     print(f"Reviewed: {result.get('reviewed')}")
     reviewer.print_summary()
-    
+
     # Test 2: Batch automatic mode
     print("\n" + "=" * 70)
     print("TEST 2: Batch Automatic Mode")
     print("=" * 70)
-    
+
     test_vulns = [
         test_vuln,
         {
@@ -548,10 +548,10 @@ index abc1234..def5678 100644
             'diff_text': '- API_KEY = "sk-1234567890"\n+ API_KEY = os.environ.get("API_KEY")'
         }
     ]
-    
+
     results = review_fixes_batch(test_vulns, mode="automatic")
     print(f"\nProcessed {len(results)} vulnerabilities")
-    
+
     # Test 3: Interactive mode info
     print("\n" + "=" * 70)
     print("TEST 3: Interactive Mode (Demo)")
@@ -564,7 +564,7 @@ index abc1234..def5678 100644
     print("\nTo test interactive mode, run:")
     print("  reviewer = FixReviewer(ReviewMode.INTERACTIVE)")
     print("  result = reviewer.review(vulnerability)")
-    
+
     print("\n" + "=" * 70)
     print("Reviewer module test completed!")
     print("=" * 70)
